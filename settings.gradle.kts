@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "UtangTracker"
+rootProject.name = "LoanTrack"
 include(":app")

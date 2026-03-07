@@ -193,7 +193,7 @@ private fun DashboardHeader(greeting: String, lenderName: String) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Utang Tracker",
+                        "LoanTrack",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground

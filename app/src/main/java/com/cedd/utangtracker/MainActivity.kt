@@ -33,6 +33,7 @@ import com.cedd.utangtracker.data.repository.UtangRepository
 import com.cedd.utangtracker.navigation.AppNavigation
 import com.cedd.utangtracker.presentation.onboarding.OnboardingScreen
 import com.cedd.utangtracker.presentation.setup.NameSetupScreen
+import com.cedd.utangtracker.presentation.splash.SplashScreen
 import com.cedd.utangtracker.worker.OverdueReminderWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -47,6 +48,7 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var repo: UtangRepository
 
     private val isAuthenticated = mutableStateOf(false)
+    private val isSplashDone    = mutableStateOf(false)
 
     private val notifPermLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -67,28 +69,33 @@ class MainActivity : FragmentActivity() {
             val hasSeenOnboarding by prefs.hasSeenOnboarding.collectAsStateWithLifecycle(true)
             val hasSeenTour       by prefs.hasSeenTour.collectAsStateWithLifecycle(true)
             val lenderName        by prefs.lenderName.collectAsStateWithLifecycle("")
-            val authenticated     by isAuthenticated
+            val authenticated  by isAuthenticated
+            val splashDone     by isSplashDone
 
             UtangTrackerTheme(isDark) {
-                when {
-                    !hasSeenOnboarding -> {
-                        OnboardingScreen(
-                            onFinish = { lifecycleScope.launch { prefs.setSeenOnboarding() } }
-                        )
-                    }
-                    biometricEnabled && !authenticated -> {
-                        LockScreen(onUnlock = { showBiometricPrompt() })
-                    }
-                    lenderName.isBlank() -> {
-                        NameSetupScreen(
-                            onSave = { name -> lifecycleScope.launch { prefs.setLenderName(name) } }
-                        )
-                    }
-                    else -> {
-                        AppNavigation(
-                            showTour = !hasSeenTour,
-                            onTourComplete = { lifecycleScope.launch { prefs.setSeenTour() } }
-                        )
+                if (!splashDone) {
+                    SplashScreen(onFinished = { isSplashDone.value = true })
+                } else {
+                    when {
+                        !hasSeenOnboarding -> {
+                            OnboardingScreen(
+                                onFinish = { lifecycleScope.launch { prefs.setSeenOnboarding() } }
+                            )
+                        }
+                        biometricEnabled && !authenticated -> {
+                            LockScreen(onUnlock = { showBiometricPrompt() })
+                        }
+                        lenderName.isBlank() -> {
+                            NameSetupScreen(
+                                onSave = { name -> lifecycleScope.launch { prefs.setLenderName(name) } }
+                            )
+                        }
+                        else -> {
+                            AppNavigation(
+                                showTour = !hasSeenTour,
+                                onTourComplete = { lifecycleScope.launch { prefs.setSeenTour() } }
+                            )
+                        }
                     }
                 }
             }
@@ -114,7 +121,7 @@ class MainActivity : FragmentActivity() {
             }
         )
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Utang Tracker")
+            .setTitle("LoanTrack")
             .setSubtitle("Verify your identity to continue")
             .setAllowedAuthenticators(authenticators)
             .build()
@@ -166,7 +173,7 @@ private fun LockScreen(onUnlock: () -> Unit) {
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(24.dp))
-            Text("Utang Tracker", fontSize = 24.sp, fontWeight = FontWeight.Bold,
+            Text("LoanTrack", fontSize = 24.sp, fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(8.dp))
             Text("Verify your identity to access your records.",

@@ -92,7 +92,7 @@ class SettingsViewModel @Inject constructor(
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Utang Tracker Report")
+                putExtra(Intent.EXTRA_SUBJECT, "LoanTrack Report")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
@@ -124,7 +124,7 @@ class SettingsViewModel @Inject constructor(
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/json"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Utang Tracker Backup")
+                putExtra(Intent.EXTRA_SUBJECT, "LoanTrack Backup")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

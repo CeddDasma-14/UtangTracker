@@ -34,15 +34,14 @@ private fun formatWithCommas(raw: String): String {
 }
 
 private data class LoanSummary(
-    val totalDays: Int,
-    val months: Int,          // full months (0 if < 1 month)
-    val remainingDays: Int,   // days beyond the full months
-    val monthlyInterest: Double,  // 1 month's worth (principal × rate/100)
+    val months: Int,
+    val monthlyInterest: Double,
     val totalInterest: Double,
     val totalPayable: Double,
-    val hasDueDate: Boolean,
-    val isShortTerm: Boolean  // true when totalDays < 30
+    val hasDueDate: Boolean
 )
+
+private val MONTH_OPTIONS = listOf(1, 2, 3, 4, 5, 6, 9, 12, 18, 24)
 
 @Composable
 private fun SummaryRow(label: String, value: String, bold: Boolean = false) {
@@ -84,8 +83,10 @@ fun AddEditDebtScreen(
     var autoApplyInterest by remember { mutableStateOf(false) }
     var contractEnabled by remember { mutableStateOf(false) }
     var dueDateMillis by remember { mutableStateOf<Long?>(null) }
-    var personExpanded by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    var personExpanded  by remember { mutableStateOf(false) }
+    var showDatePicker  by remember { mutableStateOf(false) }
+    var monthsExpanded  by remember { mutableStateOf(false) }
+    var selectedMonths  by remember { mutableStateOf<Int?>(null) }
     var personError by remember { mutableStateOf(false) }
     var amountError by remember { mutableStateOf(false) }
     var purposeError by remember { mutableStateOf(false) }
@@ -112,50 +113,31 @@ fun AddEditDebtScreen(
         if (a >= 5_000.0 && !contractEnabled && isPremium) contractEnabled = true
     }
 
-    val loanSummary = remember(amountText, interestText, dueDateMillis) {
+    val loanSummary = remember(amountText, interestText, dueDateMillis, selectedMonths) {
         val a = amountText.toDoubleOrNull() ?: 0.0
         val r = interestText.toDoubleOrNull() ?: 0.0
         if (a <= 0 || r <= 0) return@remember null
         val monthly = a * (r / 100.0)
-        val due = dueDateMillis
-        if (due != null) {
-            val now = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        if (dueDateMillis != null) {
+            val months: Int = selectedMonths ?: run {
+                // Count calendar months from today to the picked date
+                val now = Calendar.getInstance()
+                val due = Calendar.getInstance().apply { timeInMillis = dueDateMillis!! }
+                val diff = (due.get(Calendar.YEAR) - now.get(Calendar.YEAR)) * 12 +
+                           (due.get(Calendar.MONTH) - now.get(Calendar.MONTH))
+                maxOf(diff, 1)
             }
-            val dueCal = Calendar.getInstance().apply {
-                timeInMillis = due
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-            }
-            val totalDays = maxOf(
-                ((dueCal.timeInMillis - now.timeInMillis) / (1000L * 60 * 60 * 24)).toInt(),
-                1
+            val totalInterest = monthly * months
+            LoanSummary(
+                months = months, monthlyInterest = monthly,
+                totalInterest = totalInterest, totalPayable = a + totalInterest,
+                hasDueDate = true
             )
-            if (totalDays < 30) {
-                // Short-term: prorate interest by actual days (monthly rate / 30 × days)
-                val prorated = monthly * (totalDays / 30.0)
-                LoanSummary(
-                    totalDays = totalDays, months = 0, remainingDays = totalDays,
-                    monthlyInterest = monthly, totalInterest = prorated,
-                    totalPayable = a + prorated, hasDueDate = true, isShortTerm = true
-                )
-            } else {
-                val fullMonths = totalDays / 30
-                val leftoverDays = totalDays % 30
-                val totalInterest = monthly * fullMonths +
-                    if (leftoverDays > 0) monthly * (leftoverDays / 30.0) else 0.0
-                LoanSummary(
-                    totalDays = totalDays, months = fullMonths, remainingDays = leftoverDays,
-                    monthlyInterest = monthly, totalInterest = totalInterest,
-                    totalPayable = a + totalInterest, hasDueDate = true, isShortTerm = false
-                )
-            }
         } else {
             LoanSummary(
-                totalDays = 0, months = 0, remainingDays = 0,
-                monthlyInterest = monthly, totalInterest = 0.0,
-                totalPayable = a + monthly, hasDueDate = false, isShortTerm = false
+                months = 0, monthlyInterest = monthly,
+                totalInterest = 0.0, totalPayable = a + monthly,
+                hasDueDate = false
             )
         }
     }
@@ -259,15 +241,74 @@ fun AddEditDebtScreen(
                 supportingText = if (purposeError) { { Text("Purpose is required") } } else null
             )
 
-            // ── Due Date (calendar picker) ────────────────────────────────────
-            OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+            // ── Due Date ──────────────────────────────────────────────────────
+            // Quick-select: pay in N months
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Pay in:", fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ExposedDropdownMenuBox(
+                    expanded = monthsExpanded,
+                    onExpandedChange = { monthsExpanded = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedMonths != null)
+                            "$selectedMonths month${if (selectedMonths != 1) "s" else ""}"
+                        else "Select months",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(monthsExpanded) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = monthsExpanded,
+                        onDismissRequest = { monthsExpanded = false }
+                    ) {
+                        MONTH_OPTIONS.forEach { months ->
+                            DropdownMenuItem(
+                                text = { Text("$months month${if (months != 1) "s" else ""}") },
+                                onClick = {
+                                    selectedMonths = months
+                                    monthsExpanded = false
+                
+                                    val cal = Calendar.getInstance().apply {
+                                        add(Calendar.MONTH, months)
+                                        set(Calendar.HOUR_OF_DAY, 0)
+                                        set(Calendar.MINUTE, 0)
+                                        set(Calendar.SECOND, 0)
+                                        set(Calendar.MILLISECOND, 0)
+                                    }
+                                    dueDateMillis = cal.timeInMillis
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Or pick a specific date
+            OutlinedButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(if (dueDateMillis != null) "Due: ${dateFmt.format(Date(dueDateMillis!!))}"
-                     else "Set Due Date (optional)")
+                     else "Pick specific date (optional)")
             }
             if (dueDateMillis != null) {
-                TextButton(onClick = { dueDateMillis = null }) {
+                TextButton(onClick = {
+                    dueDateMillis  = null
+                    selectedMonths = null
+
+                }) {
                     Text("Clear due date", fontSize = 12.sp)
                 }
             }
@@ -296,31 +337,12 @@ fun AddEditDebtScreen(
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
                             SummaryRow("Loan Amount", formatPeso(amountText.toDoubleOrNull() ?: 0.0))
-                            if (loanSummary.isShortTerm) {
-                                // < 30 days: show daily-prorated interest and days
-                                SummaryRow(
-                                    "Interest Rate",
-                                    "${interestText}%/month (prorated)"
-                                )
-                                SummaryRow(
-                                    "Days to Pay",
-                                    "${loanSummary.totalDays} day${if (loanSummary.totalDays != 1) "s" else ""}"
-                                )
-                                SummaryRow(
-                                    "Interest for ${loanSummary.totalDays} days",
-                                    formatPeso(loanSummary.totalInterest)
-                                )
-                            } else {
-                                // ≥ 30 days: show months (+ leftover days)
-                                val durationLabel = buildString {
-                                    append("${loanSummary.months} month${if (loanSummary.months != 1) "s" else ""}")
-                                    if (loanSummary.remainingDays > 0)
-                                        append(" ${loanSummary.remainingDays} day${if (loanSummary.remainingDays != 1) "s" else ""}")
-                                }
-                                SummaryRow("Monthly Interest (${interestText}%)", formatPeso(loanSummary.monthlyInterest))
-                                SummaryRow("Term", durationLabel)
-                                SummaryRow("Total Interest", formatPeso(loanSummary.totalInterest))
-                            }
+                            SummaryRow("Monthly Interest (${interestText}%)", formatPeso(loanSummary.monthlyInterest))
+                            SummaryRow(
+                                "Term",
+                                "${loanSummary.months} month${if (loanSummary.months != 1) "s" else ""}"
+                            )
+                            SummaryRow("Total Interest", formatPeso(loanSummary.totalInterest))
                             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
                             SummaryRow("Total Payable", formatPeso(loanSummary.totalPayable), bold = true)
                         }
@@ -456,9 +478,12 @@ fun AddEditDebtScreen(
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = { dueDateMillis = dpState.selectedDateMillis; showDatePicker = false }) {
-                    Text("OK")
-                }
+                TextButton(onClick = {
+                    dueDateMillis  = dpState.selectedDateMillis
+                    selectedMonths = null
+
+                    showDatePicker = false
+                }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
         ) { DatePicker(state = dpState) }

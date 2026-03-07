@@ -141,12 +141,16 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             lineHeight = 17.sp
                         )
                         Button(
-                            onClick = { vm.setPremium(true) },
+                            onClick = {
+                                premiumDialogFeature = ""
+                                premiumDialogDesc    = ""
+                                showPremiumDialog    = true
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary
                             )
-                        ) { Text("Unlock Premium (Mock)") }
+                        ) { Text("Unlock Premium") }
                     }
                 }
             }
@@ -406,7 +410,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Utang Tracker \u00b7 v1.0.0",
+                            "LoanTrack \u00b7 v1.0.0",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

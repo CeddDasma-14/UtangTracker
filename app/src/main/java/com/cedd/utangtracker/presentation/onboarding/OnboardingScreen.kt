@@ -34,7 +34,7 @@ private data class OnboardingPage(
 private val pages = listOf(
     OnboardingPage(
         emoji = "\uD83D\uDC4B",
-        title = "Welcome to\nUtang Tracker",
+        title = "Welcome to\nLoanTrack",
         subtitle = "The smart way to track debts — simple, clear, and trustworthy.",
         bullets = listOf(
             "Never forget who owes you",

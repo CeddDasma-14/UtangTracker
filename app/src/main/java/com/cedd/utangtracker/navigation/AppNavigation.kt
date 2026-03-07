@@ -104,7 +104,7 @@ fun AppNavigation(
         derivedStateOf {
             listOf(
                 CoachMarkStep(
-                    title = "Welcome to Utang Tracker!",
+                    title = "Welcome to LoanTrack!",
                     message = "Let me give you a quick tour of the app so you can get started right away.",
                     spotlightCenter = null
                 ),
