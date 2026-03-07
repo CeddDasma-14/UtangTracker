@@ -8,6 +8,7 @@ import com.cedd.utangtracker.data.local.dao.ContractDao
 import com.cedd.utangtracker.data.local.dao.DebtDao
 import com.cedd.utangtracker.data.local.dao.PaymentDao
 import com.cedd.utangtracker.data.local.dao.PersonDao
+import com.cedd.utangtracker.data.local.dao.ReservationDao
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -38,7 +39,8 @@ object AppModule {
                 UtangDatabase.MIGRATION_9_10,
                 UtangDatabase.MIGRATION_10_11,
                 UtangDatabase.MIGRATION_11_12,
-                UtangDatabase.MIGRATION_12_13
+                UtangDatabase.MIGRATION_12_13,
+                UtangDatabase.MIGRATION_13_14
             )
             .build()
 
@@ -47,6 +49,7 @@ object AppModule {
     @Singleton @Provides fun providePaymentDao(db: UtangDatabase): PaymentDao = db.paymentDao()
     @Singleton @Provides fun provideContractDao(db: UtangDatabase): ContractDao = db.contractDao()
     @Singleton @Provides fun provideComakerDao(db: UtangDatabase): ComakerDao = db.comakerDao()
+    @Singleton @Provides fun provideReservationDao(db: UtangDatabase): ReservationDao = db.reservationDao()
 
     @Singleton @Provides fun provideFirestore(): FirebaseFirestore = Firebase.firestore
 }

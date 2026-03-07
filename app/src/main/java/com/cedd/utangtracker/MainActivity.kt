@@ -31,6 +31,8 @@ import androidx.work.WorkManager
 import com.cedd.utangtracker.data.preferences.PreferencesRepository
 import com.cedd.utangtracker.data.repository.UtangRepository
 import com.cedd.utangtracker.navigation.AppNavigation
+import com.cedd.utangtracker.presentation.onboarding.OnboardingScreen
+import com.cedd.utangtracker.presentation.setup.NameSetupScreen
 import com.cedd.utangtracker.worker.OverdueReminderWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -60,15 +62,34 @@ class MainActivity : FragmentActivity() {
         scheduleOverdueReminder()
         enableEdgeToEdge()
         setContent {
-            val isDark           by prefs.isDarkMode.collectAsStateWithLifecycle(false)
-            val biometricEnabled by prefs.isBiometricEnabled.collectAsStateWithLifecycle(false)
-            val authenticated    by isAuthenticated
+            val isDark            by prefs.isDarkMode.collectAsStateWithLifecycle(false)
+            val biometricEnabled  by prefs.isBiometricEnabled.collectAsStateWithLifecycle(false)
+            val hasSeenOnboarding by prefs.hasSeenOnboarding.collectAsStateWithLifecycle(true)
+            val hasSeenTour       by prefs.hasSeenTour.collectAsStateWithLifecycle(true)
+            val lenderName        by prefs.lenderName.collectAsStateWithLifecycle("")
+            val authenticated     by isAuthenticated
 
             UtangTrackerTheme(isDark) {
-                if (biometricEnabled && !authenticated) {
-                    LockScreen(onUnlock = { showBiometricPrompt() })
-                } else {
-                    AppNavigation()
+                when {
+                    !hasSeenOnboarding -> {
+                        OnboardingScreen(
+                            onFinish = { lifecycleScope.launch { prefs.setSeenOnboarding() } }
+                        )
+                    }
+                    biometricEnabled && !authenticated -> {
+                        LockScreen(onUnlock = { showBiometricPrompt() })
+                    }
+                    lenderName.isBlank() -> {
+                        NameSetupScreen(
+                            onSave = { name -> lifecycleScope.launch { prefs.setLenderName(name) } }
+                        )
+                    }
+                    else -> {
+                        AppNavigation(
+                            showTour = !hasSeenTour,
+                            onTourComplete = { lifecycleScope.launch { prefs.setSeenTour() } }
+                        )
+                    }
                 }
             }
         }

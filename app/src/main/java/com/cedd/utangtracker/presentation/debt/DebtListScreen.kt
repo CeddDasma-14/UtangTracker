@@ -28,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.presentation.components.DebtCard
+import com.cedd.utangtracker.presentation.components.PremiumUpgradeDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +38,17 @@ fun DebtListScreen(
     vm: DebtListViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val isPremium by vm.isPremium.collectAsStateWithLifecycle()
+    var showPremiumDialog by remember { mutableStateOf(false) }
+
+    if (showPremiumDialog) {
+        PremiumUpgradeDialog(
+            featureName = "Unlimited Debts",
+            featureDescription = "Free accounts are limited to 5 active debts. Upgrade to track unlimited debts.",
+            onUpgrade = { vm.setPremium(true); showPremiumDialog = false },
+            onDismiss = { showPremiumDialog = false }
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -51,7 +63,10 @@ fun DebtListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddDebt,
+                onClick = {
+                    if (!isPremium && state.totalActiveDebtCount >= 5) showPremiumDialog = true
+                    else onAddDebt()
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp)

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
+import com.cedd.utangtracker.data.preferences.PreferencesRepository
 import com.cedd.utangtracker.data.repository.UtangRepository
 import com.cedd.utangtracker.domain.model.DebtType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AddEditDebtViewModel @Inject constructor(
     private val repo: UtangRepository,
+    private val prefs: PreferencesRepository,
     savedState: SavedStateHandle
 ) : ViewModel() {
 
@@ -23,6 +25,11 @@ class AddEditDebtViewModel @Inject constructor(
 
     val persons: StateFlow<List<PersonEntity>> = repo.getAllPersons()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val isPremium: StateFlow<Boolean> = prefs.isPremium
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setPremium(enabled: Boolean) = viewModelScope.launch { prefs.setPremium(enabled) }
 
     private val _existing = MutableStateFlow<DebtEntity?>(null)
     val existing: StateFlow<DebtEntity?> = _existing

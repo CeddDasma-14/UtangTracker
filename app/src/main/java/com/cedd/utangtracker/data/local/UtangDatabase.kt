@@ -9,15 +9,17 @@ import com.cedd.utangtracker.data.local.dao.ContractDao
 import com.cedd.utangtracker.data.local.dao.DebtDao
 import com.cedd.utangtracker.data.local.dao.PaymentDao
 import com.cedd.utangtracker.data.local.dao.PersonDao
+import com.cedd.utangtracker.data.local.dao.ReservationDao
 import com.cedd.utangtracker.data.local.entity.ComakerEntity
 import com.cedd.utangtracker.data.local.entity.ContractEntity
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.data.local.entity.PaymentEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
+import com.cedd.utangtracker.data.local.entity.ReservationEntity
 
 @Database(
-    entities = [PersonEntity::class, DebtEntity::class, PaymentEntity::class, ContractEntity::class, ComakerEntity::class],
-    version = 13,
+    entities = [PersonEntity::class, DebtEntity::class, PaymentEntity::class, ContractEntity::class, ComakerEntity::class, ReservationEntity::class],
+    version = 14,
     exportSchema = false
 )
 abstract class UtangDatabase : RoomDatabase() {
@@ -26,6 +28,7 @@ abstract class UtangDatabase : RoomDatabase() {
     abstract fun paymentDao(): PaymentDao
     abstract fun contractDao(): ContractDao
     abstract fun comakerDao(): ComakerDao
+    abstract fun reservationDao(): ReservationDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -139,6 +142,26 @@ abstract class UtangDatabase : RoomDatabase() {
         val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE persons ADD COLUMN notes TEXT")
+            }
+        }
+
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS reservations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        personId INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        purpose TEXT NOT NULL,
+                        plannedDate INTEGER NOT NULL,
+                        notes TEXT NOT NULL DEFAULT '',
+                        status TEXT NOT NULL DEFAULT 'PENDING',
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY(personId) REFERENCES persons(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_reservations_personId ON reservations(personId)")
             }
         }
     }

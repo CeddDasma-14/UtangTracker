@@ -13,7 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.TableChart
+import com.cedd.utangtracker.presentation.components.PremiumBadge
+import com.cedd.utangtracker.presentation.components.PremiumUpgradeDialog
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,9 +39,13 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val isBiometricEnabled by vm.isBiometricEnabled.collectAsStateWithLifecycle()
     val backupStatus       by vm.backupStatus.collectAsStateWithLifecycle()
     val lenderName         by vm.lenderName.collectAsStateWithLifecycle()
+    val isPremium          by vm.isPremium.collectAsStateWithLifecycle()
 
     var showImportConfirm by remember { mutableStateOf(false) }
     var pendingImportUri  by remember { mutableStateOf<android.net.Uri?>(null) }
+    var premiumDialogFeature by remember { mutableStateOf("") }
+    var premiumDialogDesc    by remember { mutableStateOf("") }
+    var showPremiumDialog    by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -78,6 +85,72 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // ── Premium ──────────────────────────────────────────────────────
+            if (isPremium) {
+                Card(
+                    Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        Modifier.padding(16.dp).fillMaxWidth(),
+                        Arrangement.SpaceBetween,
+                        Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "\u2B50 Premium Active",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "All premium features are unlocked.",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        TextButton(onClick = { vm.setPremium(false) }) {
+                            Text("Revoke", fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
+                        }
+                    }
+                }
+            } else {
+                Card(
+                    Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "\u2B50 Upgrade to Premium",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            "Unlock: Unlimited debts & persons, Digital Contracts, Backup & Restore, CSV Export, Biometric Lock, SMS Reminders, Interest Auto-Apply, Share Payment Summary.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                            lineHeight = 17.sp
+                        )
+                        Button(
+                            onClick = { vm.setPremium(true) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) { Text("Unlock Premium (Mock)") }
+                    }
+                }
+            }
+
             // ── Dark Mode ────────────────────────────────────────────────────
             Card(Modifier.fillMaxWidth()) {
                 Row(
@@ -142,13 +215,18 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.Fingerprint,
+                            if (isPremium) Icons.Default.Fingerprint else Icons.Default.Lock,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = if (isPremium) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp)
                         )
-                        Column {
-                            Text("Biometric Lock", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text("Biometric Lock", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                if (!isPremium) PremiumBadge()
+                            }
                             Text(
                                 "Require fingerprint or face unlock on open",
                                 fontSize = 13.sp,
@@ -158,7 +236,15 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     }
                     Switch(
                         checked = isBiometricEnabled,
-                        onCheckedChange = { vm.toggleBiometric(it) }
+                        onCheckedChange = { checked ->
+                            if (checked && !isPremium) {
+                                premiumDialogFeature = "Biometric Lock"
+                                premiumDialogDesc = "Protect your debt data with fingerprint or face unlock every time you open the app."
+                                showPremiumDialog = true
+                            } else {
+                                vm.toggleBiometric(checked)
+                            }
+                        }
                     )
                 }
             }
@@ -166,7 +252,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             // ── Backup & Restore ─────────────────────────────────────────────
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Backup & Restore", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("Backup & Restore", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        if (!isPremium) PremiumBadge()
+                    }
                     Text(
                         "Export all persons, debts, and payments to a JSON file. " +
                         "Save it to Google Drive or send via email for safekeeping.",
@@ -183,7 +273,13 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     ) {
                         // Export
                         Button(
-                            onClick = { vm.exportBackup() },
+                            onClick = {
+                                if (!isPremium) {
+                                    premiumDialogFeature = "Backup & Restore"
+                                    premiumDialogDesc = "Export all your debts, persons, and payments to a JSON file. Restore them anytime."
+                                    showPremiumDialog = true
+                                } else vm.exportBackup()
+                            },
                             enabled = !isWorking,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp)
@@ -203,7 +299,13 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
 
                         // Import
                         OutlinedButton(
-                            onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                            onClick = {
+                                if (!isPremium) {
+                                    premiumDialogFeature = "Backup & Restore"
+                                    premiumDialogDesc = "Export all your debts, persons, and payments to a JSON file. Restore them anytime."
+                                    showPremiumDialog = true
+                                } else importLauncher.launch(arrayOf("application/json", "*/*"))
+                            },
                             enabled = !isWorking,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp)
@@ -227,7 +329,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             // ── Reports ──────────────────────────────────────────────────────
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Reports", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("Reports", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        if (!isPremium) PremiumBadge()
+                    }
                     Text(
                         "Export all debts as a CSV file. Open it in Google Sheets or Excel to analyze and share.",
                         fontSize = 13.sp,
@@ -235,7 +341,13 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         lineHeight = 18.sp
                     )
                     Button(
-                        onClick = { vm.exportCsv() },
+                        onClick = {
+                            if (!isPremium) {
+                                premiumDialogFeature = "CSV Export"
+                                premiumDialogDesc = "Export all your debts to a spreadsheet. Open in Google Sheets or Excel for analysis."
+                                showPremiumDialog = true
+                            } else vm.exportCsv()
+                        },
                         enabled = backupStatus !is BackupStatus.Working,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
@@ -310,6 +422,15 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 }
             }
         }
+    }
+
+    if (showPremiumDialog) {
+        PremiumUpgradeDialog(
+            featureName = premiumDialogFeature,
+            featureDescription = premiumDialogDesc,
+            onUpgrade = { vm.setPremium(true); showPremiumDialog = false },
+            onDismiss = { showPremiumDialog = false }
+        )
     }
 
     // Confirm before restoring

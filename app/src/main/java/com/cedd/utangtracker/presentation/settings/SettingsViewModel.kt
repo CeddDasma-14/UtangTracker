@@ -52,7 +52,11 @@ class SettingsViewModel @Inject constructor(
     val lenderName: StateFlow<String> = prefs.lenderName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    val isPremium: StateFlow<Boolean> = prefs.isPremium
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     fun setLenderName(name: String) = viewModelScope.launch { prefs.setLenderName(name) }
+    fun setPremium(enabled: Boolean) = viewModelScope.launch { prefs.setPremium(enabled) }
 
     private val _backupStatus = MutableStateFlow<BackupStatus>(BackupStatus.Idle)
     val backupStatus: StateFlow<BackupStatus> = _backupStatus.asStateFlow()

@@ -5,11 +5,13 @@ import com.cedd.utangtracker.data.local.dao.ContractDao
 import com.cedd.utangtracker.data.local.dao.DebtDao
 import com.cedd.utangtracker.data.local.dao.PaymentDao
 import com.cedd.utangtracker.data.local.dao.PersonDao
+import com.cedd.utangtracker.data.local.dao.ReservationDao
 import com.cedd.utangtracker.data.local.entity.ComakerEntity
 import com.cedd.utangtracker.data.local.entity.ContractEntity
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.data.local.entity.PaymentEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
+import com.cedd.utangtracker.data.local.entity.ReservationEntity
 import com.cedd.utangtracker.data.local.relation.DebtWithPayments
 import com.cedd.utangtracker.data.remote.ContractLinkRepository
 import com.cedd.utangtracker.data.remote.RemoteBorrowerData
@@ -25,6 +27,7 @@ class UtangRepository @Inject constructor(
     private val paymentDao: PaymentDao,
     private val contractDao: ContractDao,
     private val comakerDao: ComakerDao,
+    private val reservationDao: ReservationDao,
     private val linkRepo: ContractLinkRepository
 ) {
     // Persons
@@ -107,6 +110,14 @@ class UtangRepository @Inject constructor(
 
     fun getDebtsForPerson(personId: Long): Flow<List<DebtEntity>> = debtDao.getDebtsForPerson(personId)
 
+
+    // Reservations
+    fun getAllReservations(): Flow<List<ReservationEntity>> = reservationDao.getAll()
+    fun getReservationsForPerson(personId: Long): Flow<List<ReservationEntity>> = reservationDao.getForPerson(personId)
+    suspend fun getReservationById(id: Long): ReservationEntity? = reservationDao.getById(id)
+    suspend fun saveReservation(r: ReservationEntity): Long = reservationDao.insert(r)
+    suspend fun updateReservation(r: ReservationEntity) = reservationDao.update(r)
+    suspend fun deleteReservation(r: ReservationEntity) = reservationDao.delete(r)
 
     // Contracts
     fun getContractForDebt(debtId: Long): Flow<ContractEntity?> = contractDao.getContractForDebt(debtId)

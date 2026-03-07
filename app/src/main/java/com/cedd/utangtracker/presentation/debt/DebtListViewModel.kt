@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
+import com.cedd.utangtracker.data.preferences.PreferencesRepository
 import com.cedd.utangtracker.data.repository.UtangRepository
 import com.cedd.utangtracker.domain.model.DebtType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,15 +26,24 @@ data class DebtListUiState(
     val persons: List<PersonEntity> = emptyList(),
     val selectedTab: Int = 0,
     val query: String = "",
-    val sortOption: DebtSortOption = DebtSortOption.DATE_NEWEST
+    val sortOption: DebtSortOption = DebtSortOption.DATE_NEWEST,
+    val totalActiveDebtCount: Int = 0
 )
 
 @HiltViewModel
-class DebtListViewModel @Inject constructor(private val repo: UtangRepository) : ViewModel() {
+class DebtListViewModel @Inject constructor(
+    private val repo: UtangRepository,
+    private val prefs: PreferencesRepository
+) : ViewModel() {
 
     private val _tab   = MutableStateFlow(0)
     private val _query = MutableStateFlow("")
     private val _sort  = MutableStateFlow(DebtSortOption.DATE_NEWEST)
+
+    val isPremium: StateFlow<Boolean> = prefs.isPremium
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setPremium(enabled: Boolean) = viewModelScope.launch { prefs.setPremium(enabled) }
 
     val uiState: StateFlow<DebtListUiState> = combine(
         _tab,
@@ -71,8 +81,10 @@ class DebtListViewModel @Inject constructor(private val repo: UtangRepository) :
                 when (it.status) { "OVERDUE" -> 0; "ACTIVE" -> 1; else -> 2 }
             }
         }
+        val totalActive = (owedToMe + iOwe).count { it.status != "SETTLED" }
         DebtListUiState(debts = sorted, persons = persons,
-            selectedTab = tab, query = query, sortOption = sort)
+            selectedTab = tab, query = query, sortOption = sort,
+            totalActiveDebtCount = totalActive)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DebtListUiState())
 
     fun selectTab(index: Int)       { _tab.value = index }

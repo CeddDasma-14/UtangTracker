@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
+import com.cedd.utangtracker.data.preferences.PreferencesRepository
 import com.cedd.utangtracker.data.repository.UtangRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -16,18 +17,23 @@ data class DashboardUiState(
     val persons: List<PersonEntity> = emptyList(),
     val activeCount: Int = 0,
     val overdueCount: Int = 0,
-    val settledCount: Int = 0
+    val settledCount: Int = 0,
+    val lenderName: String = ""
 )
 
 @HiltViewModel
-class DashboardViewModel @Inject constructor(private val repo: UtangRepository) : ViewModel() {
+class DashboardViewModel @Inject constructor(
+    private val repo: UtangRepository,
+    private val prefs: PreferencesRepository
+) : ViewModel() {
 
     val uiState: StateFlow<DashboardUiState> = combine(
         repo.getTotalOwedToMe(),
         repo.getTotalIOwe(),
         repo.getAllDebts(),
-        repo.getAllPersons()
-    ) { owedToMe, iOwe, debts, persons ->
+        repo.getAllPersons(),
+        prefs.lenderName
+    ) { owedToMe, iOwe, debts, persons, name ->
         DashboardUiState(
             totalOwedToMe = owedToMe ?: 0.0,
             totalIOwe = iOwe ?: 0.0,
@@ -35,7 +41,8 @@ class DashboardViewModel @Inject constructor(private val repo: UtangRepository) 
             persons = persons,
             activeCount  = debts.count { it.status == "ACTIVE" },
             overdueCount = debts.count { it.status == "OVERDUE" },
-            settledCount = debts.count { it.status == "SETTLED" }
+            settledCount = debts.count { it.status == "SETTLED" },
+            lenderName = name
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 }

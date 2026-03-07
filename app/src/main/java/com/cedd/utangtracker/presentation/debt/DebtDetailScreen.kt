@@ -43,6 +43,8 @@ import coil.compose.AsyncImage
 import com.cedd.utangtracker.data.local.entity.PaymentEntity
 import com.cedd.utangtracker.domain.model.DebtType
 import com.cedd.utangtracker.presentation.components.CurrencyText
+import com.cedd.utangtracker.presentation.components.PremiumBadge
+import com.cedd.utangtracker.presentation.components.PremiumUpgradeDialog
 import com.cedd.utangtracker.presentation.components.StatusBadge
 import com.cedd.utangtracker.presentation.components.formatPeso
 import java.io.File
@@ -64,10 +66,14 @@ fun DebtDetailScreen(
     val context = LocalContext.current
     val state by vm.uiState.collectAsStateWithLifecycle()
     val lenderName by vm.lenderName.collectAsStateWithLifecycle()
+    val isPremium by vm.isPremium.collectAsStateWithLifecycle()
     val debt = state.data?.debt
     var showPayDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showReceiptChooser by remember { mutableStateOf(false) }
+    var premiumDialogFeature by remember { mutableStateOf("") }
+    var premiumDialogDesc    by remember { mutableStateOf("") }
+    var showPremiumDialog    by remember { mutableStateOf(false) }
 
     // Camera: we need a content URI prepared before launching TakePicture
     var cameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -176,8 +182,25 @@ fun DebtDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 if (debt.contractEnabled) {
-                    OutlinedButton(onClick = { onContract(debt.id) }, Modifier.fillMaxWidth()) {
-                        Text("View / Create Contract")
+                    OutlinedButton(
+                        onClick = {
+                            if (!isPremium) {
+                                premiumDialogFeature = "Digital Contracts"
+                                premiumDialogDesc = "Generate a signed PDF Kasunduan sa Pagpapautang — valid evidence for barangay mediation."
+                                showPremiumDialog = true
+                            } else onContract(debt.id)
+                        },
+                        Modifier.fillMaxWidth()
+                    ) {
+                        if (!isPremium) {
+                            Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("View / Create Contract")
+                            Spacer(Modifier.width(6.dp))
+                            PremiumBadge()
+                        } else {
+                            Text("View / Create Contract")
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -203,15 +226,25 @@ fun DebtDetailScreen(
                     }
                     OutlinedButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$personPhone"))
-                                .putExtra("sms_body", smsBody)
-                            context.startActivity(intent)
+                            if (!isPremium) {
+                                premiumDialogFeature = "SMS Reminders"
+                                premiumDialogDesc = "Send a payment reminder directly from the app via SMS to the borrower's number."
+                                showPremiumDialog = true
+                            } else {
+                                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$personPhone"))
+                                    .putExtra("sms_body", smsBody)
+                                context.startActivity(intent)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Sms, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Send SMS Reminder")
+                        if (!isPremium) {
+                            Spacer(Modifier.width(6.dp))
+                            PremiumBadge()
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -235,17 +268,27 @@ fun DebtDetailScreen(
                     }
                     OutlinedButton(
                         onClick = {
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, summaryText)
+                            if (!isPremium) {
+                                premiumDialogFeature = "Share Payment Summary"
+                                premiumDialogDesc = "Share a full payment history via WhatsApp, SMS, email, or any messaging app."
+                                showPremiumDialog = true
+                            } else {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, summaryText)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Payment Summary"))
                             }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Payment Summary"))
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Share Payment Summary")
+                        if (!isPremium) {
+                            Spacer(Modifier.width(6.dp))
+                            PremiumBadge()
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -286,6 +329,15 @@ fun DebtDetailScreen(
             }
             }
         }
+    }
+
+    if (showPremiumDialog) {
+        PremiumUpgradeDialog(
+            featureName = premiumDialogFeature,
+            featureDescription = premiumDialogDesc,
+            onUpgrade = { vm.setPremium(true); showPremiumDialog = false },
+            onDismiss = { showPremiumDialog = false }
+        )
     }
 
     // Receipt source chooser

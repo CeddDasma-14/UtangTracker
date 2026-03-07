@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cedd.utangtracker.data.local.entity.PersonEntity
+import com.cedd.utangtracker.presentation.components.PremiumUpgradeDialog
 import kotlin.math.abs
 
 // Unique vivid color palette — one per person based on name hash
@@ -52,6 +53,17 @@ fun PersonListScreen(
     vm: PersonListViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val isPremium by vm.isPremium.collectAsStateWithLifecycle()
+    var showPremiumDialog by remember { mutableStateOf(false) }
+
+    if (showPremiumDialog) {
+        PremiumUpgradeDialog(
+            featureName = "Unlimited Persons",
+            featureDescription = "Free accounts are limited to 5 persons. Upgrade to add unlimited borrowers and lenders.",
+            onUpgrade = { vm.setPremium(true); showPremiumDialog = false },
+            onDismiss = { showPremiumDialog = false }
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -66,7 +78,10 @@ fun PersonListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddPerson,
+                onClick = {
+                    if (!isPremium && state.totalPersonCount >= 5) showPremiumDialog = true
+                    else onAddPerson()
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp)

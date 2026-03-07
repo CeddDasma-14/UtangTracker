@@ -36,6 +36,11 @@ class DebtDetailViewModel @Inject constructor(
     val lenderName: StateFlow<String> = prefs.lenderName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    val isPremium: StateFlow<Boolean> = prefs.isPremium
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setPremium(enabled: Boolean) = viewModelScope.launch { prefs.setPremium(enabled) }
+
     val uiState: StateFlow<DebtDetailUiState> = combine(
         repo.getDebtWithPayments(debtId),
         repo.getAllPersons()

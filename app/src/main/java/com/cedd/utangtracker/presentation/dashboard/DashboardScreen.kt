@@ -58,9 +58,9 @@ fun DashboardScreen(
 
     val greeting = remember {
         when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-            in 5..11  -> "Magandang Umaga!"
-            in 12..17 -> "Magandang Hapon!"
-            else      -> "Magandang Gabi!"
+            in 5..11  -> "Good Morning!"
+            in 12..17 -> "Good Afternoon!"
+            else      -> "Good Evening!"
         }
     }
 
@@ -72,7 +72,7 @@ fun DashboardScreen(
             .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        item { DashboardHeader(greeting) }
+        item { DashboardHeader(greeting, state.lenderName) }
 
         item {
             HeroBalanceCard(
@@ -153,39 +153,66 @@ fun DashboardScreen(
 // ── Header ──────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun DashboardHeader(greeting: String) {
-    Row(
+private fun DashboardHeader(greeting: String, lenderName: String) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                greeting,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "Utang Tracker",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.size(44.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Default.Notifications,
-                    contentDescription = "Notifications",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF4361EE).copy(alpha = 0.10f),
+                        Color.Transparent
+                    )
                 )
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                if (lenderName.isNotBlank()) {
+                    Text(
+                        "Hi $lenderName,",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        greeting,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                } else {
+                    Text(
+                        greeting,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Utang Tracker",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = "Notifications",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -289,23 +316,25 @@ private fun QuickActionsRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             QuickActionButton(
-                icon     = Icons.Default.Add,
-                label    = "Add Debt",
-                onClick  = onAddDebt,
-                modifier = Modifier.weight(1f)
+                icon      = Icons.Default.Add,
+                label     = "Add Debt",
+                onClick   = onAddDebt,
+                tintColor = Color(0xFF4361EE),
+                modifier  = Modifier.weight(1f)
             )
             QuickActionButton(
-                icon     = Icons.Default.People,
-                label    = "Persons",
-                onClick  = onPersons,
-                modifier = Modifier.weight(1f)
+                icon      = Icons.Default.People,
+                label     = "Persons",
+                onClick   = onPersons,
+                tintColor = Color(0xFF16A34A),
+                modifier  = Modifier.weight(1f)
             )
-            // Contract requires a specific debt — navigate to Debts list to pick one
             QuickActionButton(
-                icon     = Icons.Default.Description,
-                label    = "Contract",
-                onClick  = onDebts,
-                modifier = Modifier.weight(1f)
+                icon      = Icons.Default.Description,
+                label     = "Contract",
+                onClick   = onDebts,
+                tintColor = Color(0xFF7C3AED),
+                modifier  = Modifier.weight(1f)
             )
         }
     }
@@ -316,31 +345,59 @@ private fun QuickActionButton(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    tintColor: Color = Color(0xFF4361EE),
     modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = Color.Transparent,
         onClick = onClick,
         modifier = modifier
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            tintColor.copy(alpha = 0.18f),
+                            tintColor.copy(alpha = 0.07f)
+                        )
+                    )
+                )
         ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                label,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
-            )
+            Column(
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(tintColor.copy(alpha = 0.25f), tintColor.copy(alpha = 0.08f))
+                            ),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = label,
+                        tint = tintColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    label,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
@@ -478,14 +535,14 @@ private fun EmptyDebtsPlaceholder() {
             Text("💸", fontSize = 52.sp)
             Spacer(Modifier.height(16.dp))
             Text(
-                "Walang utang pa!",
+                "No debts yet!",
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 17.sp,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                "Tap \"Add Debt\" para mag-record.",
+                "Tap \"Add Debt\" to start tracking.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

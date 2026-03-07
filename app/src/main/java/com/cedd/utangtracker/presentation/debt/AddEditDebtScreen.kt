@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cedd.utangtracker.domain.model.DebtType
+import com.cedd.utangtracker.presentation.components.PremiumBadge
+import com.cedd.utangtracker.presentation.components.PremiumUpgradeDialog
 import com.cedd.utangtracker.presentation.components.formatPeso
 import java.text.SimpleDateFormat
 import java.util.*
@@ -32,11 +34,14 @@ private fun formatWithCommas(raw: String): String {
 }
 
 private data class LoanSummary(
-    val months: Int,
-    val monthlyInterest: Double,
+    val totalDays: Int,
+    val months: Int,          // full months (0 if < 1 month)
+    val remainingDays: Int,   // days beyond the full months
+    val monthlyInterest: Double,  // 1 month's worth (principal × rate/100)
     val totalInterest: Double,
     val totalPayable: Double,
-    val hasDueDate: Boolean
+    val hasDueDate: Boolean,
+    val isShortTerm: Boolean  // true when totalDays < 30
 )
 
 @Composable
@@ -63,7 +68,12 @@ fun AddEditDebtScreen(
 ) {
     val persons by vm.persons.collectAsStateWithLifecycle()
     val existing by vm.existing.collectAsStateWithLifecycle()
+    val isPremium by vm.isPremium.collectAsStateWithLifecycle()
     val isEdit = existing != null
+
+    var premiumDialogFeature by remember { mutableStateOf("") }
+    var premiumDialogDesc    by remember { mutableStateOf("") }
+    var showPremiumDialog    by remember { mutableStateOf(false) }
 
     var selectedPersonId by remember { mutableStateOf(vm.prefilledPersonId) }
     var type by remember { mutableStateOf(DebtType.OWED_TO_ME) }
@@ -96,10 +106,10 @@ fun AddEditDebtScreen(
         }
     }
 
-    // Auto-enable contract when amount reaches ₱5,000
-    LaunchedEffect(amountText) {
+    // Auto-enable contract when amount reaches ₱5,000 (premium only)
+    LaunchedEffect(amountText, isPremium) {
         val a = amountText.toDoubleOrNull() ?: 0.0
-        if (a >= 5_000.0 && !contractEnabled) contractEnabled = true
+        if (a >= 5_000.0 && !contractEnabled && isPremium) contractEnabled = true
     }
 
     val loanSummary = remember(amountText, interestText, dueDateMillis) {
@@ -109,16 +119,44 @@ fun AddEditDebtScreen(
         val monthly = a * (r / 100.0)
         val due = dueDateMillis
         if (due != null) {
-            val now = Calendar.getInstance()
-            val dueCal = Calendar.getInstance().apply { timeInMillis = due }
-            val months = maxOf(
-                (dueCal.get(Calendar.YEAR) - now.get(Calendar.YEAR)) * 12 +
-                (dueCal.get(Calendar.MONTH) - now.get(Calendar.MONTH)),
+            val now = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val dueCal = Calendar.getInstance().apply {
+                timeInMillis = due
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val totalDays = maxOf(
+                ((dueCal.timeInMillis - now.timeInMillis) / (1000L * 60 * 60 * 24)).toInt(),
                 1
             )
-            LoanSummary(months, monthly, monthly * months, a + monthly * months, true)
+            if (totalDays < 30) {
+                // Short-term: prorate interest by actual days (monthly rate / 30 × days)
+                val prorated = monthly * (totalDays / 30.0)
+                LoanSummary(
+                    totalDays = totalDays, months = 0, remainingDays = totalDays,
+                    monthlyInterest = monthly, totalInterest = prorated,
+                    totalPayable = a + prorated, hasDueDate = true, isShortTerm = true
+                )
+            } else {
+                val fullMonths = totalDays / 30
+                val leftoverDays = totalDays % 30
+                val totalInterest = monthly * fullMonths +
+                    if (leftoverDays > 0) monthly * (leftoverDays / 30.0) else 0.0
+                LoanSummary(
+                    totalDays = totalDays, months = fullMonths, remainingDays = leftoverDays,
+                    monthlyInterest = monthly, totalInterest = totalInterest,
+                    totalPayable = a + totalInterest, hasDueDate = true, isShortTerm = false
+                )
+            }
         } else {
-            LoanSummary(0, monthly, 0.0, a + monthly, false)
+            LoanSummary(
+                totalDays = 0, months = 0, remainingDays = 0,
+                monthlyInterest = monthly, totalInterest = 0.0,
+                totalPayable = a + monthly, hasDueDate = false, isShortTerm = false
+            )
         }
     }
 
@@ -258,9 +296,31 @@ fun AddEditDebtScreen(
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
                             SummaryRow("Loan Amount", formatPeso(amountText.toDoubleOrNull() ?: 0.0))
-                            SummaryRow("Monthly Interest (${interestText}%)", formatPeso(loanSummary.monthlyInterest))
-                            SummaryRow("Months to Pay", "${loanSummary.months} month${if (loanSummary.months != 1) "s" else ""}")
-                            SummaryRow("Total Interest", formatPeso(loanSummary.totalInterest))
+                            if (loanSummary.isShortTerm) {
+                                // < 30 days: show daily-prorated interest and days
+                                SummaryRow(
+                                    "Interest Rate",
+                                    "${interestText}%/month (prorated)"
+                                )
+                                SummaryRow(
+                                    "Days to Pay",
+                                    "${loanSummary.totalDays} day${if (loanSummary.totalDays != 1) "s" else ""}"
+                                )
+                                SummaryRow(
+                                    "Interest for ${loanSummary.totalDays} days",
+                                    formatPeso(loanSummary.totalInterest)
+                                )
+                            } else {
+                                // ≥ 30 days: show months (+ leftover days)
+                                val durationLabel = buildString {
+                                    append("${loanSummary.months} month${if (loanSummary.months != 1) "s" else ""}")
+                                    if (loanSummary.remainingDays > 0)
+                                        append(" ${loanSummary.remainingDays} day${if (loanSummary.remainingDays != 1) "s" else ""}")
+                                }
+                                SummaryRow("Monthly Interest (${interestText}%)", formatPeso(loanSummary.monthlyInterest))
+                                SummaryRow("Term", durationLabel)
+                                SummaryRow("Total Interest", formatPeso(loanSummary.totalInterest))
+                            }
                             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
                             SummaryRow("Total Payable", formatPeso(loanSummary.totalPayable), bold = true)
                         }
@@ -296,7 +356,16 @@ fun AddEditDebtScreen(
                                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = autoApplyInterest, onCheckedChange = { autoApplyInterest = it })
+                        Switch(
+                            checked = autoApplyInterest,
+                            onCheckedChange = { checked ->
+                                if (checked && !isPremium) {
+                                    premiumDialogFeature = "Interest Auto-Apply"
+                                    premiumDialogDesc = "Automatically add monthly interest to overdue debts so you never miss a calculation."
+                                    showPremiumDialog = true
+                                } else autoApplyInterest = checked
+                            }
+                        )
                     }
                 }
             }
@@ -328,6 +397,7 @@ fun AddEditDebtScreen(
                                     )
                                 }
                             }
+                            if (!isPremium) PremiumBadge()
                         }
                         Text(
                             if (contractEnabled)
@@ -336,7 +406,16 @@ fun AddEditDebtScreen(
                             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(checked = contractEnabled, onCheckedChange = { contractEnabled = it })
+                    Switch(
+                        checked = contractEnabled,
+                        onCheckedChange = { checked ->
+                            if (checked && !isPremium) {
+                                premiumDialogFeature = "Digital Contracts"
+                                premiumDialogDesc = "Generate a signed PDF Kasunduan sa Pagpapautang — valid evidence for barangay mediation."
+                                showPremiumDialog = true
+                            } else contractEnabled = checked
+                        }
+                    )
                 }
             }
 
@@ -360,6 +439,15 @@ fun AddEditDebtScreen(
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (isEdit) "Update Debt" else "Save Debt") }
         }
+    }
+
+    if (showPremiumDialog) {
+        PremiumUpgradeDialog(
+            featureName = premiumDialogFeature,
+            featureDescription = premiumDialogDesc,
+            onUpgrade = { vm.setPremium(true); showPremiumDialog = false },
+            onDismiss = { showPremiumDialog = false }
+        )
     }
 
     // ── Date Picker Dialog ────────────────────────────────────────────────────

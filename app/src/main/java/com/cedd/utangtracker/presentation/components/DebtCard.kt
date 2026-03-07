@@ -60,7 +60,19 @@ fun DebtCard(
                 .fillMaxWidth()
                 .background(cardGradient)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            // Left gradient accent bar
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(4.dp)
+                    .align(Alignment.CenterStart)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(amountColor, amountColor.copy(alpha = 0.2f))
+                        )
+                    )
+            )
+            Column(modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
