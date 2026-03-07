@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kasunduan sa Utang — Remote Signing</title>
+  <link rel="stylesheet" href="/style.css?v=2" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Loading ─────────────────────────────────────────────────────── -->
+  <div id="screen-loading">
+    <div class="spinner"></div>
+    <div class="status-title" id="loading-text">Loading contract…</div>
+  </div>
+
+  <!-- ── Expired ──────────────────────────────────────────────────────── -->
+  <div id="screen-expired" style="display:none">
+    <div class="status-icon">⏰</div>
+    <div class="status-title" id="txt-expired-title">Link has expired</div>
+    <div class="status-sub" id="txt-expired-sub">This signing link is no longer valid. Please ask the lender to generate a new one.</div>
+  </div>
+
+  <!-- ── Error ────────────────────────────────────────────────────────── -->
+  <div id="screen-error" style="display:none">
+    <div class="status-icon">❌</div>
+    <div class="status-title" id="txt-error-title">Invalid link</div>
+    <div class="status-sub" id="txt-error-sub">This contract link could not be found. Please check the link and try again.</div>
+  </div>
+
+  <!-- ── Already completed ─────────────────────────────────────────────── -->
+  <div id="screen-success" style="display:none">
+    <div class="status-icon">✅</div>
+    <div class="status-title" id="txt-success-title">Already submitted</div>
+    <div class="status-sub" id="txt-success-sub">You have already signed this contract. The lender has been notified.</div>
+  </div>
+
+  <!-- ── Main form (hidden until data loaded) ─────────────────────────── -->
+  <div id="screen-main" style="display:none">
+
+    <!-- Language selector -->
+    <div class="header">
+      <div>
+        <h1 id="hdr-title">Kasunduan sa Utang</h1>
+        <p id="hdr-sub">Debt Agreement — Remote Signing</p>
+      </div>
+    </div>
+
+    <div class="lang-select">
+      <button class="lang-btn active" onclick="setLang('en')">English</button>
+      <button class="lang-btn" onclick="setLang('tl')">Tagalog</button>
+      <button class="lang-btn" onclick="setLang('bis')">Bisaya</button>
+    </div>
+
+    <!-- Step progress -->
+    <div class="steps">
+      <div class="step done" id="step-0"></div>
+      <div class="step" id="step-1"></div>
+      <div class="step" id="step-2"></div>
+    </div>
+
+    <!-- Section 0: Contract Preview — full document -->
+    <div id="sec-preview" class="card card-doc">
+      <div id="contract-doc"></div>
+    </div>
+
+    <!-- Section 1: Personal details -->
+    <div id="sec-details" class="card" style="display:none">
+      <div class="card-title" id="lbl-personal">Personal Details</div>
+
+      <div class="form-group">
+        <label id="lbl-fullname">Full Name *</label>
+        <input type="text" id="inp-fullname" autocomplete="name" />
+        <div class="field-error" id="err-fullname"></div>
+      </div>
+
+      <div class="form-group">
+        <label id="lbl-address">Home Address *</label>
+        <input type="text" id="inp-address" autocomplete="street-address" />
+        <div class="field-error" id="err-address"></div>
+      </div>
+
+      <div class="form-group">
+        <label id="lbl-phone">Phone Number *</label>
+        <input type="tel" id="inp-phone" autocomplete="tel" placeholder="e.g. 09171234567" />
+        <div class="field-error" id="err-phone"></div>
+      </div>
+
+      <!-- Comaker section -->
+      <div id="grp-comakers" style="margin-bottom:20px">
+        <div style="font-weight:600; font-size:14px; margin-bottom:8px; color:var(--text)" id="lbl-comakers-header">Alternative Contact / Co-maker <span style="font-weight:400;font-size:12px;color:#888">(Optional)</span></div>
+        <div id="comaker-list"></div>
+        <button class="btn btn-outline btn-sm" type="button" onclick="addComakerRow()" id="btn-add-comaker">+ Add Co-maker</button>
+      </div>
+
+      <!-- Collateral section -->
+      <div id="grp-collateral" style="margin-bottom:20px">
+        <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:var(--text)" id="lbl-collateral-header">Collateral Items <span style="font-weight:400;font-size:12px;color:#888">(Optional)</span></div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px" id="lbl-collateral-sub">List any items you are offering as collateral to secure this loan (e.g. phone, laptop, ATM card).</div>
+        <div id="collateral-list"></div>
+        <button class="btn btn-outline btn-sm" type="button" onclick="addCollateralRow()" id="btn-add-collateral">+ Add Item</button>
+      </div>
+
+      <div class="form-group">
+        <label id="lbl-idtype">Government-issued ID Type *</label>
+        <select id="sel-idtype">
+          <option value="">-- Select ID --</option>
+          <option>SSS</option>
+          <option>GSIS</option>
+          <option>PhilHealth</option>
+          <option>UMID</option>
+          <option>Passport</option>
+          <option>TIN</option>
+          <option>Driver's License</option>
+          <option>PRC</option>
+          <option>Voter's ID</option>
+          <option>PhilSys (National ID)</option>
+          <option>Postal ID</option>
+        </select>
+        <div class="field-error" id="err-idtype"></div>
+      </div>
+
+      <div class="form-group">
+        <label id="lbl-idnum">ID Number *</label>
+        <input type="text" id="inp-idnum" />
+        <div class="field-error" id="err-idnum"></div>
+      </div>
+
+      <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#5d4037;line-height:1.5" id="lbl-idphoto-note">
+        📷 Please send a clear photo of your government ID to the lender via Messenger, WhatsApp, or SMS so they can verify your identity.
+      </div>
+    </div>
+
+    <!-- Section 2: Signature -->
+    <div id="sec-sign" class="card" style="display:none">
+      <div class="card-title" id="lbl-signature">Your Signature</div>
+      <canvas id="sig-canvas"></canvas>
+      <div class="sig-hint" id="lbl-sign-here">Sign above using your finger or stylus</div>
+      <div class="sig-actions">
+        <button class="btn btn-outline btn-sm" onclick="clearSignature()" id="btn-clear-sig">Clear</button>
+      </div>
+      <div class="field-error" id="err-signature" style="margin-top:6px"></div>
+    </div>
+
+    <!-- Review -->
+    <div id="sec-review" class="card" style="display:none">
+      <div class="card-title" id="lbl-review">Review & Submit</div>
+      <div id="review-rows"></div>
+      <div class="upload-progress" id="upload-bar" style="display:none">
+        <div class="upload-progress-bar" id="upload-bar-fill" style="width:0%"></div>
+      </div>
+      <div id="err-submit" class="field-error" style="margin-bottom:8px"></div>
+    </div>
+
+    <!-- Navigation buttons -->
+    <div style="display:flex; gap:10px; margin-bottom:24px">
+      <button class="btn btn-outline" id="btn-back" onclick="prevStep()" style="display:none">Back</button>
+      <button class="btn btn-primary" id="btn-next" onclick="nextStep()">Continue →</button>
+    </div>
+
+  </div><!-- /screen-main -->
+</div><!-- /app -->
+
+<script type="module" src="/app.js?v=6"></script>
+</body>
+</html>

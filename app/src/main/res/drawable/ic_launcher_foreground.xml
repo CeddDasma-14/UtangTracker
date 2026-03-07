@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ₱ symbol: vertical stroke -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,20 L46,88 L54,88 L54,20 Z" />
+
+    <!-- ₱ symbol: arc bump on right -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,20 Q78,20 78,40 Q78,60 46,60 L46,52 Q68,52 68,40 Q68,28 46,28 Z" />
+
+    <!-- ₱ symbol: two horizontal lines -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,48 L76,48 L76,54 L36,54 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,60 L76,60 L76,66 L36,66 Z" />
+
+</vector>
