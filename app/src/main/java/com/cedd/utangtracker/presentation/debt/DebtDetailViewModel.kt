@@ -96,6 +96,10 @@ class DebtDetailViewModel @Inject constructor(
         try { File(path).delete() } catch (_: Exception) {}
     }
 
+    fun toggleLock() = viewModelScope.launch {
+        uiState.value.data?.debt?.let { repo.toggleDebtLock(it) }
+    }
+
     /** Adds one month's interest to the debt principal. */
     fun applyMonthlyInterest() = viewModelScope.launch {
         val debt = uiState.value.data?.debt ?: return@launch

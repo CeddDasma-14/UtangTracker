@@ -36,6 +36,7 @@ import com.cedd.utangtracker.presentation.setup.NameSetupScreen
 import com.cedd.utangtracker.presentation.splash.SplashScreen
 import com.cedd.utangtracker.worker.OverdueReminderWorker
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -55,6 +56,7 @@ class MainActivity : FragmentActivity() {
     ) { /* proceed either way */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         createNotificationChannels()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

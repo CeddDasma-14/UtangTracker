@@ -13,6 +13,9 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -24,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cedd.utangtracker.data.local.entity.DebtEntity
 import com.cedd.utangtracker.presentation.components.DebtCard
+import com.cedd.utangtracker.presentation.components.PremiumUpgradeDialog
 import kotlin.math.abs
 
 private val avatarPalette = listOf(

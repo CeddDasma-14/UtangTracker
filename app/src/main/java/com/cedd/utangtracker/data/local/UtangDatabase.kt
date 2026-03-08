@@ -19,7 +19,7 @@ import com.cedd.utangtracker.data.local.entity.ReservationEntity
 
 @Database(
     entities = [PersonEntity::class, DebtEntity::class, PaymentEntity::class, ContractEntity::class, ComakerEntity::class, ReservationEntity::class],
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 abstract class UtangDatabase : RoomDatabase() {
@@ -162,6 +162,19 @@ abstract class UtangDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_reservations_personId ON reservations(personId)")
+            }
+        }
+
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN bankCharge REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE debts ADD COLUMN totalAmount REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

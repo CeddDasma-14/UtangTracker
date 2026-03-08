@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sms
@@ -97,11 +99,23 @@ fun DebtDetailScreen(
                 },
                 actions = {
                     debt?.let {
-                        IconButton(onClick = { onEdit(it.id) }) {
-                            Icon(Icons.Default.Edit, "Edit")
+                        if (isPremium) {
+                            IconButton(onClick = { vm.toggleLock() }) {
+                                Icon(
+                                    imageVector = if (it.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                    contentDescription = if (it.isLocked) "Unlock" else "Lock",
+                                    tint = if (it.isLocked) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFC62828))
+                        if (!it.isLocked) {
+                            IconButton(onClick = { onEdit(it.id) }) {
+                                Icon(Icons.Default.Edit, "Edit")
+                            }
+                            IconButton(onClick = { showDeleteConfirm = true }) {
+                                Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFC62828))
+                            }
                         }
                     }
                 }
@@ -113,8 +127,22 @@ fun DebtDetailScreen(
             return@Scaffold
         }
 
-        val remaining = debt.amount - debt.paidAmount
+        val target = if (debt.totalAmount > 0) debt.totalAmount else debt.amount
+        val remaining = target - debt.paidAmount
         val isOwedToMe = debt.type == DebtType.OWED_TO_ME.value
+
+        // Compute interest breakdown for display
+        val monthsCount: Int = run {
+            val due = debt.dateDue ?: return@run 0
+            val created = debt.dateCreated
+            val createdCal = java.util.Calendar.getInstance().apply { timeInMillis = created }
+            val dueCal = java.util.Calendar.getInstance().apply { timeInMillis = due }
+            val diff = (dueCal.get(java.util.Calendar.YEAR) - createdCal.get(java.util.Calendar.YEAR)) * 12 +
+                       (dueCal.get(java.util.Calendar.MONTH) - createdCal.get(java.util.Calendar.MONTH))
+            maxOf(diff, 0)
+        }
+        val totalInterest = if (debt.interestRate > 0 && monthsCount > 0)
+            debt.amount * (debt.interestRate / 100.0) * monthsCount else 0.0
 
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp)) {
             item {
@@ -131,12 +159,23 @@ fun DebtDetailScreen(
                             color = if (isOwedToMe) Color(0xFF2E7D32) else Color(0xFFC62828),
                             fontSize = 28.sp, fontWeight = FontWeight.Bold
                         )
-                        Text("Original: ${formatPeso(debt.amount)} · Paid: ${formatPeso(debt.paidAmount)}",
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HorizontalDivider()
+                        // Spreadsheet-style breakdown
+                        DetailRow("Principal", formatPeso(debt.amount))
+                        if (debt.interestRate > 0) {
+                            DetailRow("Interest Rate", "${debt.interestRate}% / month")
+                            if (monthsCount > 0) DetailRow("Term", "$monthsCount month${if (monthsCount != 1) "s" else ""}")
+                            if (totalInterest > 0) DetailRow("Total Interest", formatPeso(totalInterest))
+                        }
+                        if (debt.bankCharge > 0) DetailRow("Bank Charge", formatPeso(debt.bankCharge))
+                        if (debt.totalAmount > 0) {
+                            HorizontalDivider()
+                            DetailRow("Total", formatPeso(debt.totalAmount), bold = true)
+                        }
+                        DetailRow("Collected", formatPeso(debt.paidAmount), valueColor = Color(0xFF2E7D32))
                         HorizontalDivider()
                         Text("Purpose: ${debt.purpose}")
                         debt.dateDue?.let { Text("Due: ${dateFmt.format(Date(it))}") }
-                        if (debt.interestRate > 0) Text("Interest: ${debt.interestRate}% / month")
                         if (debt.notes.isNotBlank()) Text("Notes: ${debt.notes}")
                     }
                 }
@@ -255,7 +294,7 @@ fun DebtDetailScreen(
                     val summaryText = buildString {
                         append("Payment Summary — ${state.person?.name ?: ""}\n")
                         append("Purpose: ${debt.purpose}\n")
-                        append("Amount: ${formatPeso(debt.amount)}\n")
+                        append("Amount: ${formatPeso(target)}\n")
                         append("Paid: ${formatPeso(debt.paidAmount)}\n")
                         append("Remaining: ${formatPeso(remaining)}\n")
                         append("Status: ${debt.status}\n\n")
@@ -523,6 +562,22 @@ private fun DisbursementReceiptSection(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+    bold: Boolean = false,
+    valueColor: Color = Color.Unspecified
+) {
+    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+        Text(value, fontSize = 13.sp,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+            color = valueColor)
     }
 }
 

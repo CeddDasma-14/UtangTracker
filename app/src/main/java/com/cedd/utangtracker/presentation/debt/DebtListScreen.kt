@@ -17,6 +17,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -40,6 +45,10 @@ fun DebtListScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val isPremium by vm.isPremium.collectAsStateWithLifecycle()
     var showPremiumDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<DebtEntity?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     if (showPremiumDialog) {
         PremiumUpgradeDialog(
@@ -50,8 +59,40 @@ fun DebtListScreen(
         )
     }
 
+    if (showDeleteConfirm && pendingDelete != null) {
+        val debt = pendingDelete!!
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false; pendingDelete = null },
+            title = { Text("Delete Debt?") },
+            text = { Text("Are you sure you want to delete this debt? You can undo immediately after.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    pendingDelete = null
+                    vm.deleteDebt(debt)
+                    scope.launch {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Debt deleted",
+                            actionLabel = "Undo",
+                            duration = SnackbarDuration.Long
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            vm.undoDelete(debt)
+                        }
+                    }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false; pendingDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Debts", fontWeight = FontWeight.Bold) },
@@ -152,12 +193,18 @@ fun DebtListScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(state.debts, key = { it.id }) { debt ->
-                        SwipeToDismissDebt(debt, onDelete = { vm.deleteDebt(debt) }) {
+                        SwipeToDismissDebt(debt, onSwipeDelete = {
+                            if (!debt.isLocked) {
+                                pendingDelete = debt
+                                showDeleteConfirm = true
+                            }
+                        }) {
                             val person = state.persons.find { it.id == debt.personId }
                             DebtCard(
-                                debt       = debt,
-                                personName = person?.name ?: "Unknown",
-                                onClick    = { onDebtClick(debt.id) }
+                                debt           = debt,
+                                personName     = person?.name ?: "Unknown",
+                                onClick        = { onDebtClick(debt.id) },
+                                onLockToggle   = if (isPremium) { { vm.toggleLock(debt) } } else null
                             )
                         }
                     }
@@ -242,17 +289,27 @@ private fun SegmentTab(
 @Composable
 private fun SwipeToDismissDebt(
     debt: DebtEntity,
-    onDelete: () -> Unit,
+    onSwipeDelete: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false
-        }
+        confirmValueChange = { it == SwipeToDismissBoxValue.EndToStart }
     )
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { dismissState.currentValue }
+            .drop(1) // skip restored state on recomposition — only react to real user gestures
+            .filter { it == SwipeToDismissBoxValue.EndToStart }
+            .collect {
+                onSwipeDelete()
+                dismissState.reset()
+            }
+    }
+
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = !debt.isLocked,
         backgroundContent = {
             Box(
                 Modifier

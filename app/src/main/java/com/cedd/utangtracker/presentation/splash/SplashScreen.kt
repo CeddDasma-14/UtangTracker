@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -126,7 +127,7 @@ fun SplashScreen(onFinished: () -> Unit) {
         delay(350)                         // hold cursor briefly
         showCursor = false
         typingDone = true                  // shimmer starts
-        delay(1350)
+        delay(2300)
         onFinished()
     }
 
@@ -181,6 +182,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                     contentDescription = "LoanTrack",
                     modifier           = Modifier
                         .size(114.dp)
+                        .clip(CircleShape)
                         .alpha(logoAlpha)
                         .scale(logoScale)
                 )

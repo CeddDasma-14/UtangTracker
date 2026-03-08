@@ -38,7 +38,8 @@ private data class LoanSummary(
     val monthlyInterest: Double,
     val totalInterest: Double,
     val totalPayable: Double,
-    val hasDueDate: Boolean
+    val hasDueDate: Boolean,
+    val bankCharge: Double = 0.0
 )
 
 private val MONTH_OPTIONS = listOf(1, 2, 3, 4, 5, 6, 9, 12, 18, 24)
@@ -80,6 +81,7 @@ fun AddEditDebtScreen(
     var purpose by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var interestText by remember { mutableStateOf("0") }
+    var bankChargeText by remember { mutableStateOf("0") }
     var autoApplyInterest by remember { mutableStateOf(false) }
     var contractEnabled by remember { mutableStateOf(false) }
     var dueDateMillis by remember { mutableStateOf<Long?>(null) }
@@ -90,6 +92,9 @@ fun AddEditDebtScreen(
     var personError by remember { mutableStateOf(false) }
     var amountError by remember { mutableStateOf(false) }
     var purposeError by remember { mutableStateOf(false) }
+    var isOldDebt by remember { mutableStateOf(false) }
+    var startDateMillis by remember { mutableStateOf<Long?>(null) }
+    var showStartDatePicker by remember { mutableStateOf(false) }
 
     val dateFmt = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
 
@@ -101,6 +106,7 @@ fun AddEditDebtScreen(
             purpose = d.purpose
             notes = d.notes
             interestText = d.interestRate.toString()
+            bankChargeText = d.bankCharge.toString()
             autoApplyInterest = d.autoApplyInterest
             contractEnabled = d.contractEnabled
             dueDateMillis = d.dateDue
@@ -113,32 +119,30 @@ fun AddEditDebtScreen(
         if (a >= 5_000.0 && !contractEnabled && isPremium) contractEnabled = true
     }
 
-    val loanSummary = remember(amountText, interestText, dueDateMillis, selectedMonths) {
-        val a = amountText.toDoubleOrNull() ?: 0.0
-        val r = interestText.toDoubleOrNull() ?: 0.0
+    val loanSummary = remember(amountText, interestText, bankChargeText, dueDateMillis, selectedMonths, startDateMillis) {
+        val a  = amountText.toDoubleOrNull() ?: 0.0
+        val r  = interestText.toDoubleOrNull() ?: 0.0
+        val bc = bankChargeText.toDoubleOrNull() ?: 0.0
         if (a <= 0 || r <= 0) return@remember null
         val monthly = a * (r / 100.0)
         if (dueDateMillis != null) {
             val months: Int = selectedMonths ?: run {
-                // Count calendar months from today to the picked date
-                val now = Calendar.getInstance()
+                val from = Calendar.getInstance().apply {
+                    timeInMillis = startDateMillis ?: System.currentTimeMillis()
+                }
                 val due = Calendar.getInstance().apply { timeInMillis = dueDateMillis!! }
-                val diff = (due.get(Calendar.YEAR) - now.get(Calendar.YEAR)) * 12 +
-                           (due.get(Calendar.MONTH) - now.get(Calendar.MONTH))
+                val diff = (due.get(Calendar.YEAR) - from.get(Calendar.YEAR)) * 12 +
+                           (due.get(Calendar.MONTH) - from.get(Calendar.MONTH))
                 maxOf(diff, 1)
             }
             val totalInterest = monthly * months
-            LoanSummary(
-                months = months, monthlyInterest = monthly,
-                totalInterest = totalInterest, totalPayable = a + totalInterest,
-                hasDueDate = true
-            )
+            LoanSummary(months = months, monthlyInterest = monthly,
+                totalInterest = totalInterest, totalPayable = a + totalInterest + bc,
+                hasDueDate = true, bankCharge = bc)
         } else {
-            LoanSummary(
-                months = 0, monthlyInterest = monthly,
-                totalInterest = 0.0, totalPayable = a + monthly,
-                hasDueDate = false
-            )
+            LoanSummary(months = 0, monthlyInterest = monthly,
+                totalInterest = 0.0, totalPayable = a + monthly + bc,
+                hasDueDate = false, bankCharge = bc)
         }
     }
 
@@ -216,6 +220,27 @@ fun AddEditDebtScreen(
                     onClick = { type = DebtType.I_OWE }, label = { Text("I Owe") })
             }
 
+            // ── New / Old Debt toggle ─────────────────────────────────────────
+            if (!isEdit) {
+                Text("Entry Type", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !isOldDebt,
+                        onClick = { isOldDebt = false; startDateMillis = null },
+                        label = { Text("New Debt") })
+                    FilterChip(selected = isOldDebt,
+                        onClick = { isOldDebt = true },
+                        label = { Text("Old / Past Debt") })
+                }
+                if (isOldDebt) {
+                    OutlinedButton(onClick = { showStartDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (startDateMillis != null) "Start Date: ${dateFmt.format(Date(startDateMillis!!))}"
+                             else "Pick Start Date *")
+                    }
+                }
+            }
+
             // ── Amount ────────────────────────────────────────────────────────
             OutlinedTextField(
                 value = formatWithCommas(amountText),
@@ -278,7 +303,9 @@ fun AddEditDebtScreen(
                                     selectedMonths = months
                                     monthsExpanded = false
                 
+                                    val base = startDateMillis ?: System.currentTimeMillis()
                                     val cal = Calendar.getInstance().apply {
+                                        timeInMillis = base
                                         add(Calendar.MONTH, months)
                                         set(Calendar.HOUR_OF_DAY, 0)
                                         set(Calendar.MINUTE, 0)
@@ -321,6 +348,18 @@ fun AddEditDebtScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true
             )
 
+            // ── Bank Charge ───────────────────────────────────────────────────
+            OutlinedTextField(
+                value = formatWithCommas(bankChargeText.replace(",", "")),
+                onValueChange = { input ->
+                    val raw = input.replace(",", "")
+                    if (raw.matches(Regex("\\d*\\.?\\d*"))) bankChargeText = raw
+                },
+                label = { Text("Bank Charge (₱, optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true
+            )
+
             if (loanSummary != null) {
                 if (loanSummary.hasDueDate) {
                     // Full loan summary card
@@ -343,6 +382,8 @@ fun AddEditDebtScreen(
                                 "${loanSummary.months} month${if (loanSummary.months != 1) "s" else ""}"
                             )
                             SummaryRow("Total Interest", formatPeso(loanSummary.totalInterest))
+                            if (loanSummary.bankCharge > 0)
+                                SummaryRow("Bank Charge", formatPeso(loanSummary.bankCharge))
                             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
                             SummaryRow("Total Payable", formatPeso(loanSummary.totalPayable), bold = true)
                         }
@@ -455,8 +496,12 @@ fun AddEditDebtScreen(
                     purposeError = purpose.isBlank()
                     if (personError || amountError || purposeError) return@Button
                     val interest = interestText.toDoubleOrNull() ?: 0.0
+                    val bankCharge = bankChargeText.toDoubleOrNull() ?: 0.0
+                    val totalAmount = loanSummary?.totalPayable ?: (amount!! + bankCharge)
                     vm.save(selectedPersonId, type, amount!!, purpose, dueDateMillis,
-                        interest, autoApplyInterest, contractEnabled, notes, onDone)
+                        interest, autoApplyInterest, contractEnabled, notes,
+                        bankCharge, totalAmount, onDone,
+                        dateCreated = if (isOldDebt) startDateMillis else null)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (isEdit) "Update Debt" else "Save Debt") }
@@ -470,6 +515,35 @@ fun AddEditDebtScreen(
             onUpgrade = { vm.setPremium(true); showPremiumDialog = false },
             onDismiss = { showPremiumDialog = false }
         )
+    }
+
+    // ── Start Date Picker (Old Debt) ──────────────────────────────────────────
+    if (showStartDatePicker) {
+        val dpState = rememberDatePickerState(
+            initialSelectedDateMillis = startDateMillis ?: System.currentTimeMillis(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) =
+                    utcTimeMillis <= System.currentTimeMillis()
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    startDateMillis = dpState.selectedDateMillis
+                    selectedMonths?.let { months ->
+                        val base = startDateMillis ?: System.currentTimeMillis()
+                        dueDateMillis = Calendar.getInstance().apply {
+                            timeInMillis = base; add(Calendar.MONTH, months)
+                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                    }
+                    showStartDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showStartDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = dpState) }
     }
 
     // ── Date Picker Dialog ────────────────────────────────────────────────────

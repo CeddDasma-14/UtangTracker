@@ -64,7 +64,6 @@ fun DashboardScreen(
         }
     }
 
-    val netBalance = state.totalOwedToMe - state.totalIOwe
 
     LazyColumn(
         modifier = Modifier
@@ -76,11 +75,14 @@ fun DashboardScreen(
 
         item {
             HeroBalanceCard(
-                netBalance = netBalance,
-                owedToMe   = state.totalOwedToMe,
-                iOwe       = state.totalIOwe,
-                gradient   = heroGradient,
-                modifier   = Modifier.padding(horizontal = 20.dp)
+                totalBalance   = state.totalBalance,
+                totalPrincipal = state.totalPrincipal,
+                totalInterest  = state.totalInterestEarned,
+                grandTotal     = state.grandTotal,
+                totalCollected = state.totalCollected,
+                iOwe           = state.totalIOwe,
+                gradient       = heroGradient,
+                modifier       = Modifier.padding(horizontal = 20.dp)
             )
         }
 
@@ -222,8 +224,11 @@ private fun DashboardHeader(greeting: String, lenderName: String) {
 
 @Composable
 private fun HeroBalanceCard(
-    netBalance: Double,
-    owedToMe: Double,
+    totalBalance: Double,
+    totalPrincipal: Double,
+    totalInterest: Double,
+    grandTotal: Double,
+    totalCollected: Double,
     iOwe: Double,
     gradient: Brush,
     modifier: Modifier = Modifier
@@ -236,57 +241,43 @@ private fun HeroBalanceCard(
             .padding(24.dp)
     ) {
         Column {
-            Text(
-                "Net Balance",
-                fontSize = 13.sp,
-                color = Color.White.copy(alpha = 0.75f)
-            )
+            Text("Outstanding Balance", fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
             Spacer(Modifier.height(6.dp))
-            CurrencyText(
-                amount     = netBalance,
-                color      = Color.White,
-                fontSize   = 36.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(20.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+            CurrencyText(amount = totalBalance, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HeroStat(
-                    label  = "Owed to Me",
-                    amount = owedToMe,
-                    color  = Color(0xFF4ADE80),
-                    modifier = Modifier.weight(1f),
-                    align  = Alignment.Start
-                )
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(36.dp)
-                        .background(Color.White.copy(alpha = 0.2f))
-                )
-                HeroStat(
-                    label  = "I Owe",
-                    amount = iOwe,
-                    color  = Color(0xFFFF6B6B),
-                    modifier = Modifier.weight(1f),
-                    align  = Alignment.End
-                )
+            HeroSummaryRow("Total Loaned", totalPrincipal, Color.White.copy(alpha = 0.85f))
+            Spacer(Modifier.height(4.dp))
+            HeroSummaryRow("Total Interest", totalInterest, Color(0xFF4ADE80))
+            Spacer(Modifier.height(4.dp))
+            HeroSummaryRow("Grand Total", grandTotal, Color.White, bold = true)
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth()) {
+                HeroStat(label = "Collected", amount = totalCollected, color = Color(0xFF4ADE80),
+                    modifier = Modifier.weight(1f), align = Alignment.Start)
+                Box(Modifier.width(1.dp).height(36.dp).background(Color.White.copy(alpha = 0.2f)))
+                HeroStat(label = "I Owe", amount = iOwe, color = Color(0xFFFF6B6B),
+                    modifier = Modifier.weight(1f), align = Alignment.End)
             }
         }
     }
 }
 
 @Composable
+private fun HeroSummaryRow(label: String, amount: Double, color: Color, bold: Boolean = false) {
+    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        Text(label, fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f),
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+        CurrencyText(amount = amount, color = color, fontSize = 13.sp,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun HeroStat(
-    label: String,
-    amount: Double,
-    color: Color,
-    modifier: Modifier = Modifier,
-    align: Alignment.Horizontal = Alignment.Start
+    label: String, amount: Double, color: Color,
+    modifier: Modifier = Modifier, align: Alignment.Horizontal = Alignment.Start
 ) {
     Column(modifier = modifier, horizontalAlignment = align) {
         Text(label, fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f))

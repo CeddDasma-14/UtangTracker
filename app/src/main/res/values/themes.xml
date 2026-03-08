@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LoanTrack" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Splash screen theme — shown by Android system on launch -->
+    <style name="Theme.LoanTrack.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#1A2A6C</item>
+        <item name="postSplashScreenTheme">@style/Theme.LoanTrack</item>
+    </style>
+
+    <style name="Theme.LoanTrack" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#1A2A6C</item>
+        <item name="android:statusBarColor">#1A2A6C</item>
+        <item name="android:navigationBarColor">#0A0A18</item>
+    </style>
 </resources>

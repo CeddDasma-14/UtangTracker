@@ -92,4 +92,6 @@ class DebtListViewModel @Inject constructor(
     fun setSort(s: DebtSortOption)  { _sort.value = s }
 
     fun deleteDebt(debt: DebtEntity) = viewModelScope.launch { repo.deleteDebt(debt) }
+    fun undoDelete(debt: DebtEntity) = viewModelScope.launch { repo.saveDebt(debt) }
+    fun toggleLock(debt: DebtEntity) = viewModelScope.launch { repo.toggleDebtLock(debt) }
 }

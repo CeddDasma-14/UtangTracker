@@ -46,6 +46,7 @@ class UtangRepository @Inject constructor(
     suspend fun saveDebt(debt: DebtEntity): Long = debtDao.insert(debt)
     suspend fun updateDebt(debt: DebtEntity) = debtDao.update(debt)
     suspend fun deleteDebt(debt: DebtEntity) = debtDao.delete(debt)
+    suspend fun toggleDebtLock(debt: DebtEntity) = debtDao.update(debt.copy(isLocked = !debt.isLocked))
 
     // Payments
     fun getAllPayments(): Flow<List<PaymentEntity>> = paymentDao.getAllPayments()

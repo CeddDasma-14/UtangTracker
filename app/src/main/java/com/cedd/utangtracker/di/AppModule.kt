@@ -40,7 +40,9 @@ object AppModule {
                 UtangDatabase.MIGRATION_10_11,
                 UtangDatabase.MIGRATION_11_12,
                 UtangDatabase.MIGRATION_12_13,
-                UtangDatabase.MIGRATION_13_14
+                UtangDatabase.MIGRATION_13_14,
+                UtangDatabase.MIGRATION_14_15,
+                UtangDatabase.MIGRATION_15_16
             )
             .build()
 

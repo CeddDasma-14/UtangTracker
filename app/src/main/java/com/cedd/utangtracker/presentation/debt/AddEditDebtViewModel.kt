@@ -46,16 +46,21 @@ class AddEditDebtViewModel @Inject constructor(
         personId: Long, type: DebtType, amount: Double, purpose: String,
         dateDue: Long?, interestRate: Double, autoApplyInterest: Boolean,
         contractEnabled: Boolean, notes: String,
-        onDone: () -> Unit
+        bankCharge: Double, totalAmount: Double,
+        onDone: () -> Unit,
+        dateCreated: Long? = null
     ) = viewModelScope.launch {
         val debt = _existing.value?.copy(
             personId = personId, type = type.value, amount = amount, purpose = purpose,
             dateDue = dateDue, interestRate = interestRate, autoApplyInterest = autoApplyInterest,
-            contractEnabled = contractEnabled, notes = notes
+            contractEnabled = contractEnabled, notes = notes,
+            bankCharge = bankCharge, totalAmount = totalAmount
         ) ?: DebtEntity(
             personId = personId, type = type.value, amount = amount, purpose = purpose,
             dateDue = dateDue, interestRate = interestRate, autoApplyInterest = autoApplyInterest,
-            contractEnabled = contractEnabled, notes = notes
+            contractEnabled = contractEnabled, notes = notes,
+            bankCharge = bankCharge, totalAmount = totalAmount,
+            dateCreated = dateCreated ?: System.currentTimeMillis()
         )
         if (editId != null) repo.updateDebt(debt) else repo.saveDebt(debt)
         onDone()

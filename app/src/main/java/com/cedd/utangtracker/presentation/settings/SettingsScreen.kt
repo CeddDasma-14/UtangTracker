@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.TableChart
 import com.cedd.utangtracker.presentation.components.PremiumBadge
@@ -43,6 +45,12 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
 
     var showImportConfirm by remember { mutableStateOf(false) }
     var pendingImportUri  by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showSpreadsheetImportConfirm by remember { mutableStateOf(false) }
+    var pendingSpreadsheetUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showCsvImportConfirm by remember { mutableStateOf(false) }
+    var pendingCsvUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var sheetsUrl by remember { mutableStateOf("") }
+    var showSheetsImportConfirm by remember { mutableStateOf(false) }
     var premiumDialogFeature by remember { mutableStateOf("") }
     var premiumDialogDesc    by remember { mutableStateOf("") }
     var showPremiumDialog    by remember { mutableStateOf(false) }
@@ -70,6 +78,24 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         if (uri != null) {
             pendingImportUri = uri
             showImportConfirm = true
+        }
+    }
+
+    val spreadsheetImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            pendingSpreadsheetUri = uri
+            showSpreadsheetImportConfirm = true
+        }
+    }
+
+    val csvImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            pendingCsvUri = uri
+            showCsvImportConfirm = true
         }
     }
 
@@ -330,6 +356,168 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 }
             }
 
+            // ── Spreadsheet Import ───────────────────────────────────────────
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("Spreadsheet Import", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        if (!isPremium) PremiumBadge()
+                    }
+                    Text(
+                        "Import your existing loans directly from Excel or Google Sheets. " +
+                        "Just export your spreadsheet as a CSV file and import it here.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+                    val isWorking = backupStatus is BackupStatus.Working
+
+                    // Google Sheets URL paste
+                    OutlinedTextField(
+                        value = sheetsUrl,
+                        onValueChange = { sheetsUrl = it },
+                        placeholder = { Text("Paste Google Sheets link here…", fontSize = 13.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (sheetsUrl.isNotBlank()) {
+                                if (!isPremium) {
+                                    premiumDialogFeature = "Spreadsheet Import"
+                                    premiumDialogDesc = "Import loans directly from Google Sheets, CSV, or Excel files."
+                                    showPremiumDialog = true
+                                } else showSheetsImportConfirm = true
+                            }
+                        })
+                    )
+                    Button(
+                        onClick = {
+                            if (!isPremium) {
+                                premiumDialogFeature = "Spreadsheet Import"
+                                premiumDialogDesc = "Import loans directly from Google Sheets, CSV, or Excel files."
+                                showPremiumDialog = true
+                            } else if (sheetsUrl.isNotBlank()) showSheetsImportConfirm = true
+                        },
+                        enabled = !isWorking && sheetsUrl.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (isWorking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Icon(Icons.Default.CloudDownload, null, Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text("Import from Google Sheets Link")
+                        if (!isPremium) {
+                            Spacer(Modifier.width(6.dp))
+                            PremiumBadge()
+                        }
+                    }
+                    Text(
+                        "Share your Google Sheets → tap Share → Copy link → paste it above.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 16.sp
+                    )
+
+                    HorizontalDivider()
+
+                    // Primary: CSV import
+                    Button(
+                        onClick = {
+                            if (!isPremium) {
+                                premiumDialogFeature = "Spreadsheet Import"
+                                premiumDialogDesc = "Import loans directly from Google Sheets, CSV, or Excel files."
+                                showPremiumDialog = true
+                            } else csvImportLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*"))
+                        },
+                        enabled = !isWorking,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (isWorking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Icon(Icons.Default.FileUpload, null, Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text("Import CSV or Excel (.xlsx)")
+                        if (!isPremium) {
+                            Spacer(Modifier.width(6.dp))
+                            PremiumBadge()
+                        }
+                    }
+                    Text(
+                        "How: In Excel → File → Save As → CSV. In Google Sheets → File → Download → CSV. " +
+                        "Required columns: NAME, AMOUNT. Optional: DATE, DUE DATE, %, BANK CHARGE, MONTH, COLLECTED MONEY.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 16.sp
+                    )
+
+                    HorizontalDivider()
+
+                    // Secondary: JSON template
+                    Text("Or use a JSON template", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                if (!isPremium) {
+                                    premiumDialogFeature = "Spreadsheet Import"
+                                    premiumDialogDesc = "Import loans directly from Google Sheets, CSV, or Excel files."
+                                    showPremiumDialog = true
+                                } else vm.exportSpreadsheetTemplate()
+                            },
+                            enabled = !isWorking,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.FileDownload, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Get Template")
+                            if (!isPremium) {
+                                Spacer(Modifier.width(6.dp))
+                                PremiumBadge()
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                if (!isPremium) {
+                                    premiumDialogFeature = "Spreadsheet Import"
+                                    premiumDialogDesc = "Import loans directly from Google Sheets, CSV, or Excel files."
+                                    showPremiumDialog = true
+                                } else spreadsheetImportLauncher.launch(arrayOf("application/json", "*/*"))
+                            },
+                            enabled = !isWorking,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.FileUpload, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Import JSON")
+                            if (!isPremium) {
+                                Spacer(Modifier.width(6.dp))
+                                PremiumBadge()
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── Reports ──────────────────────────────────────────────────────
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -459,6 +647,85 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 TextButton(onClick = { showImportConfirm = false; pendingImportUri = null }) {
                     Text("Cancel")
                 }
+            }
+        )
+    }
+
+    // Confirm CSV import
+    if (showCsvImportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showCsvImportConfirm = false; pendingCsvUri = null },
+            title = { Text("Import from CSV?") },
+            text  = {
+                Text(
+                    "Each row in the CSV will be added as a new debt. " +
+                    "Persons are created automatically by name. Continue?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingCsvUri?.let { vm.importFromCsv(it) }
+                    showCsvImportConfirm = false
+                    pendingCsvUri = null
+                }) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCsvImportConfirm = false; pendingCsvUri = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Confirm Google Sheets URL import
+    if (showSheetsImportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSheetsImportConfirm = false },
+            title = { Text("Import from Google Sheets?") },
+            text  = {
+                Text(
+                    "The app will download your sheet as CSV and import each row as a new debt. " +
+                    "Make sure the sheet is shared publicly (\"Anyone with the link can view\"). Continue?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.importFromGoogleSheetsUrl(sheetsUrl.trim())
+                    showSheetsImportConfirm = false
+                    sheetsUrl = ""
+                }) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSheetsImportConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Confirm spreadsheet JSON import
+    if (showSpreadsheetImportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSpreadsheetImportConfirm = false; pendingSpreadsheetUri = null },
+            title = { Text("Import Spreadsheet?") },
+            text  = {
+                Text(
+                    "Records in the JSON file will be added as new debts. " +
+                    "Persons will be created automatically if they don't exist yet. Continue?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingSpreadsheetUri?.let { vm.importSpreadsheet(it) }
+                    showSpreadsheetImportConfirm = false
+                    pendingSpreadsheetUri = null
+                }) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showSpreadsheetImportConfirm = false
+                    pendingSpreadsheetUri = null
+                }) { Text("Cancel") }
             }
         )
     }

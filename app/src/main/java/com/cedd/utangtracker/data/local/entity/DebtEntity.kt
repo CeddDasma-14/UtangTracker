@@ -30,5 +30,8 @@ data class DebtEntity(
     val status: String = "ACTIVE", // "ACTIVE" | "SETTLED" | "OVERDUE"
     val notes: String = "",
     val disbursementReceiptPaths: String? = null,  // comma-separated absolute file paths
-    val lastInterestAppliedAt: Long? = null        // timestamp of last auto-interest application
+    val lastInterestAppliedAt: Long? = null,       // timestamp of last auto-interest application
+    val bankCharge: Double = 0.0,                  // one-time bank/processing fee
+    val totalAmount: Double = 0.0,                 // principal + totalInterest + bankCharge (set at save time)
+    val isLocked: Boolean = false                  // locked debts cannot be deleted (Premium feature)
 )

@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,14 +32,16 @@ fun DebtCard(
     debt: DebtEntity,
     personName: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLockToggle: (() -> Unit)? = null
 ) {
-    val remaining   = (debt.amount - debt.paidAmount).coerceAtLeast(0.0)
+    val target      = if (debt.totalAmount > 0) debt.totalAmount else debt.amount
+    val remaining   = (target - debt.paidAmount).coerceAtLeast(0.0)
     val isOwedToMe  = debt.type == DebtType.OWED_TO_ME.value
     val amountColor = if (isOwedToMe) MaterialTheme.colorScheme.secondary
                       else MaterialTheme.colorScheme.tertiary
     val initial     = personName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-    val progress    = if (debt.amount > 0) (debt.paidAmount / debt.amount).toFloat().coerceIn(0f, 1f) else 0f
+    val progress    = if (target > 0) (debt.paidAmount / target).toFloat().coerceIn(0f, 1f) else 0f
     val isSettled   = debt.status == "SETTLED"
 
     val cardGradient = Brush.horizontalGradient(
@@ -72,6 +77,20 @@ fun DebtCard(
                         )
                     )
             )
+            // Padlock icon — Premium only, shown only in PersonDetail via onLockToggle
+            if (onLockToggle != null) {
+                IconButton(
+                    onClick = onLockToggle,
+                    modifier = Modifier.align(Alignment.TopEnd).size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = if (debt.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                        contentDescription = if (debt.isLocked) "Unlock debt" else "Lock debt",
+                        tint = if (debt.isLocked) amountColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
             Column(modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -170,7 +189,7 @@ fun DebtCard(
                             color    = amountColor.copy(alpha = 0.8f)
                         )
                         Text(
-                            "of ₱${"%,.0f".format(debt.amount)}",
+                            "of ₱${"%,.0f".format(target)}",
                             fontSize = 10.sp,
                             color    = MaterialTheme.colorScheme.onSurfaceVariant
                         )
