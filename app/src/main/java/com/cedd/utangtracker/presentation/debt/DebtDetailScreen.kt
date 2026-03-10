@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
@@ -63,10 +64,12 @@ fun DebtDetailScreen(
     onEdit: (Long) -> Unit,
     onContract: (Long) -> Unit = {},
     onReloan: (Long) -> Unit = {},
+    onLedger: (Long) -> Unit = {},
     vm: DebtDetailViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val ledgerEntries by vm.ledgerEntries.collectAsStateWithLifecycle()
     val lenderName by vm.lenderName.collectAsStateWithLifecycle()
     val isPremium by vm.isPremium.collectAsStateWithLifecycle()
     val debt = state.data?.debt
@@ -128,7 +131,10 @@ fun DebtDetailScreen(
         }
 
         val target = if (debt.totalAmount > 0) debt.totalAmount else debt.amount
-        val remaining = target - debt.paidAmount
+        val remaining = if (debt.ledgerEnabled && debt.ledgerCurrentBalance > 0)
+            debt.ledgerCurrentBalance
+        else
+            target - debt.paidAmount
         val isOwedToMe = debt.type == DebtType.OWED_TO_ME.value
 
         // Compute interest breakdown for display
@@ -159,6 +165,32 @@ fun DebtDetailScreen(
                             color = if (isOwedToMe) Color(0xFF2E7D32) else Color(0xFFC62828),
                             fontSize = 28.sp, fontWeight = FontWeight.Bold
                         )
+                        // Ledger missed-months badge
+                        if (debt.ledgerEnabled && ledgerEntries.isNotEmpty()) {
+                            val missedCount = ledgerEntries.count { it.isMissedPayment }
+                            val trackedCount = ledgerEntries.size
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (missedCount > 0) {
+                                    Surface(shape = MaterialTheme.shapes.small, color = Color(0xFFFFEBEE)) {
+                                        Text(
+                                            "$missedCount month${if (missedCount > 1) "s" else ""} missed",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFFC62828),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+                                    Text(
+                                        "$trackedCount month${if (trackedCount > 1) "s" else ""} tracked",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                         HorizontalDivider()
                         // Spreadsheet-style breakdown
                         DetailRow("Principal", formatPeso(debt.amount))
@@ -332,6 +364,29 @@ fun DebtDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
+                // ── Loan Ledger ───────────────────────────────────────────────
+                OutlinedButton(
+                    onClick = {
+                        if (!isPremium) {
+                            premiumDialogFeature = "Loan Ledger"
+                            premiumDialogDesc = "Track monthly payments, missed months, and compounding interest in a full ledger — shareable with the borrower as evidence."
+                            showPremiumDialog = true
+                        } else {
+                            onLedger(debt.id)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.DateRange, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (debt.ledgerEnabled) "View Loan Ledger" else "Loan Ledger (Enable in settings)")
+                    if (!isPremium) {
+                        Spacer(Modifier.width(6.dp))
+                        PremiumBadge()
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+
                 // ── Reloan ────────────────────────────────────────────────────
                 if (debt.status == "SETTLED") {
                     val reloanPersonId = debt.personId
@@ -419,8 +474,8 @@ fun DebtDetailScreen(
 
     if (showPayDialog) {
         AddPaymentDialog(
-            onConfirm = { amount, notes ->
-                vm.addPayment(amount, notes)
+            onConfirm = { amount, notes, datePaidMillis ->
+                vm.addPayment(amount, notes, datePaidMillis)
                 showPayDialog = false
             },
             onDismiss = { showPayDialog = false }
@@ -621,10 +676,17 @@ private fun PaymentRow(payment: PaymentEntity, onDelete: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddPaymentDialog(onConfirm: (Double, String) -> Unit, onDismiss: () -> Unit) {
+private fun AddPaymentDialog(onConfirm: (Double, String, Long) -> Unit, onDismiss: () -> Unit) {
     var amountText by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val dateLabel = remember(selectedDateMillis) {
+        java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.US).format(selectedDateMillis)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -637,6 +699,19 @@ private fun AddPaymentDialog(onConfirm: (Double, String) -> Unit, onDismiss: () 
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
+                // Date picker field
+                OutlinedTextField(
+                    value = dateLabel,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Payment Date") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Pick date")
+                        }
+                    },
+                    singleLine = true
+                )
                 OutlinedTextField(
                     value = notes, onValueChange = { notes = it },
                     label = { Text("Notes (optional)") }, singleLine = true
@@ -646,9 +721,27 @@ private fun AddPaymentDialog(onConfirm: (Double, String) -> Unit, onDismiss: () 
         confirmButton = {
             TextButton(onClick = {
                 val amount = amountText.toDoubleOrNull() ?: return@TextButton
-                if (amount > 0) onConfirm(amount, notes)
+                if (amount > 0) onConfirm(amount, notes, selectedDateMillis)
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDateMillis = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState, showModeToggle = true)
+        }
+    }
 }

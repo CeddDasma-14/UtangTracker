@@ -3,6 +3,7 @@ package com.cedd.utangtracker.navigation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
@@ -37,6 +38,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cedd.utangtracker.presentation.contract.ContractScreen
+import com.cedd.utangtracker.presentation.ledger.LoanLedgerScreen
 import com.cedd.utangtracker.presentation.dashboard.DashboardScreen
 import com.cedd.utangtracker.presentation.debt.AddEditDebtScreen
 import com.cedd.utangtracker.presentation.debt.DebtDetailScreen
@@ -68,6 +70,9 @@ sealed class Screen(val route: String) {
     }
     data object Contract          : Screen("contract/{debtId}") {
         fun withId(id: Long) = "contract/$id"
+    }
+    data object LoanLedger        : Screen("loan_ledger/{debtId}") {
+        fun withId(id: Long) = "loan_ledger/$id"
     }
     data object PersonDetail      : Screen("person_detail/{personId}") {
         fun withId(id: Long) = "person_detail/$id"
@@ -238,8 +243,16 @@ fun AppNavigation(
                     onBack     = { navController.popBackStack() },
                     onEdit     = { id -> navController.navigate(Screen.AddDebt.withId(id)) },
                     onContract = { id -> navController.navigate(Screen.Contract.withId(id)) },
-                    onReloan   = { personId -> navController.navigate(Screen.AddDebt.forReloan(personId)) }
+                    onReloan   = { personId -> navController.navigate(Screen.AddDebt.forReloan(personId)) },
+                    onLedger   = { id -> navController.navigate(Screen.LoanLedger.withId(id)) }
                 )
+            }
+
+            composable(
+                route = Screen.LoanLedger.route,
+                arguments = listOf(navArgument("debtId") { type = NavType.LongType })
+            ) {
+                LoanLedgerScreen(onBack = { navController.popBackStack() })
             }
 
             composable(
@@ -287,7 +300,8 @@ private fun FloatingNavBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, bottom = 20.dp, top = 4.dp)
+            .navigationBarsPadding()
+            .padding(start = 24.dp, end = 24.dp, bottom = 12.dp, top = 4.dp)
     ) {
         Box(
             modifier = Modifier
@@ -307,7 +321,7 @@ private fun FloatingNavBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                    .padding(vertical = 10.dp, horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -347,7 +361,7 @@ private fun NavPillItem(
                 else Modifier.background(Color.Transparent)
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
             .onGloballyPositioned { coords ->
                 val pos = coords.positionInWindow()
                 val size = coords.size

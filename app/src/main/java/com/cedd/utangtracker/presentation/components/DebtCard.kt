@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
@@ -36,7 +37,10 @@ fun DebtCard(
     onLockToggle: (() -> Unit)? = null
 ) {
     val target      = if (debt.totalAmount > 0) debt.totalAmount else debt.amount
-    val remaining   = (target - debt.paidAmount).coerceAtLeast(0.0)
+    val remaining   = if (debt.ledgerEnabled && debt.ledgerCurrentBalance > 0)
+                          debt.ledgerCurrentBalance
+                      else
+                          (target - debt.paidAmount).coerceAtLeast(0.0)
     val isOwedToMe  = debt.type == DebtType.OWED_TO_ME.value
     val amountColor = if (isOwedToMe) MaterialTheme.colorScheme.secondary
                       else MaterialTheme.colorScheme.tertiary
@@ -146,6 +150,14 @@ fun DebtCard(
                                     "· Due ${dateFmt.format(Date(it))}",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (debt.ledgerEnabled) {
+                                Icon(
+                                    Icons.Default.CalendarMonth,
+                                    contentDescription = "Ledger active",
+                                    tint = amountColor.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(13.dp)
                                 )
                             }
                         }

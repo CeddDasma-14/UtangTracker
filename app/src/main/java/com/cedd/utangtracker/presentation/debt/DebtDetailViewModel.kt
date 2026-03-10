@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cedd.utangtracker.data.local.entity.LedgerEntryEntity
 import com.cedd.utangtracker.data.local.entity.PaymentEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
 import com.cedd.utangtracker.data.local.relation.DebtWithPayments
@@ -41,6 +42,9 @@ class DebtDetailViewModel @Inject constructor(
 
     fun setPremium(enabled: Boolean) = viewModelScope.launch { prefs.setPremium(enabled) }
 
+    val ledgerEntries: StateFlow<List<LedgerEntryEntity>> = repo.getLedgerEntries(debtId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val uiState: StateFlow<DebtDetailUiState> = combine(
         repo.getDebtWithPayments(debtId),
         repo.getAllPersons()
@@ -48,9 +52,9 @@ class DebtDetailViewModel @Inject constructor(
         DebtDetailUiState(data = dwp, person = persons.find { it.id == dwp?.debt?.personId })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DebtDetailUiState())
 
-    fun addPayment(amount: Double, notes: String) = viewModelScope.launch {
+    fun addPayment(amount: Double, notes: String, datePaidMillis: Long = System.currentTimeMillis()) = viewModelScope.launch {
         val debt = uiState.value.data?.debt ?: return@launch
-        repo.addPayment(PaymentEntity(debtId = debtId, amount = amount, notes = notes), debt)
+        repo.addPayment(PaymentEntity(debtId = debtId, amount = amount, datePaid = datePaidMillis, notes = notes), debt)
     }
 
     fun deletePayment(payment: PaymentEntity) = viewModelScope.launch {

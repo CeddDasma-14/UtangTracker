@@ -33,5 +33,12 @@ data class DebtEntity(
     val lastInterestAppliedAt: Long? = null,       // timestamp of last auto-interest application
     val bankCharge: Double = 0.0,                  // one-time bank/processing fee
     val totalAmount: Double = 0.0,                 // principal + totalInterest + bankCharge (set at save time)
-    val isLocked: Boolean = false                  // locked debts cannot be deleted (Premium feature)
+    val isLocked: Boolean = false,                 // locked debts cannot be deleted (Premium feature)
+    // ── Loan Ledger ────────────────────────────────────────────────────────────
+    val ledgerEnabled: Boolean = false,            // show/use the monthly ledger for this debt
+    val ledgerCarryOver: Double = 0.0,             // previous balance carry-over from lender
+    val ledgerCarryOverMonthly: Boolean = false,   // true = auto-add carry-over every month
+    val ledgerCycleMonths: Int = 3,                // interest cycle length (3 = quarterly)
+    val ledgerInitialBalance: Double = 0.0,        // custom opening balance (0 = use auto startingBalance)
+    val ledgerCurrentBalance: Double = 0.0         // synced from last ledger entry; 0 = no entries yet
 )

@@ -45,7 +45,12 @@ class DashboardViewModel @Inject constructor(
         val grandTotal     = lentDebts.sumOf { if (it.totalAmount > 0) it.totalAmount else it.amount }
         val totalCollected = lentDebts.sumOf { it.paidAmount }
         val totalInterest  = grandTotal - totalPrincipal - lentDebts.sumOf { it.bankCharge }
-        val totalBalance   = grandTotal - totalCollected
+        val totalBalance   = lentDebts.sumOf { debt ->
+            if (debt.ledgerEnabled && debt.ledgerCurrentBalance > 0)
+                debt.ledgerCurrentBalance
+            else
+                ((if (debt.totalAmount > 0) debt.totalAmount else debt.amount) - debt.paidAmount).coerceAtLeast(0.0)
+        }
         DashboardUiState(
             totalOwedToMe = owedToMe ?: 0.0,
             totalIOwe = iOwe ?: 0.0,

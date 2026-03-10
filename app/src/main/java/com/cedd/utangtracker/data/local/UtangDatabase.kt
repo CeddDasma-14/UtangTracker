@@ -7,19 +7,21 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.cedd.utangtracker.data.local.dao.ComakerDao
 import com.cedd.utangtracker.data.local.dao.ContractDao
 import com.cedd.utangtracker.data.local.dao.DebtDao
+import com.cedd.utangtracker.data.local.dao.LedgerDao
 import com.cedd.utangtracker.data.local.dao.PaymentDao
 import com.cedd.utangtracker.data.local.dao.PersonDao
 import com.cedd.utangtracker.data.local.dao.ReservationDao
 import com.cedd.utangtracker.data.local.entity.ComakerEntity
 import com.cedd.utangtracker.data.local.entity.ContractEntity
 import com.cedd.utangtracker.data.local.entity.DebtEntity
+import com.cedd.utangtracker.data.local.entity.LedgerEntryEntity
 import com.cedd.utangtracker.data.local.entity.PaymentEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
 import com.cedd.utangtracker.data.local.entity.ReservationEntity
 
 @Database(
-    entities = [PersonEntity::class, DebtEntity::class, PaymentEntity::class, ContractEntity::class, ComakerEntity::class, ReservationEntity::class],
-    version = 16,
+    entities = [PersonEntity::class, DebtEntity::class, PaymentEntity::class, ContractEntity::class, ComakerEntity::class, ReservationEntity::class, LedgerEntryEntity::class],
+    version = 20,
     exportSchema = false
 )
 abstract class UtangDatabase : RoomDatabase() {
@@ -29,6 +31,7 @@ abstract class UtangDatabase : RoomDatabase() {
     abstract fun contractDao(): ContractDao
     abstract fun comakerDao(): ComakerDao
     abstract fun reservationDao(): ReservationDao
+    abstract fun ledgerDao(): LedgerDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -175,6 +178,54 @@ abstract class UtangDatabase : RoomDatabase() {
         val MIGRATION_15_16 = object : Migration(15, 16) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE debts ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // New ledger config columns on debts
+                db.execSQL("ALTER TABLE debts ADD COLUMN ledgerEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE debts ADD COLUMN ledgerCarryOver REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE debts ADD COLUMN ledgerCarryOverMonthly INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE debts ADD COLUMN ledgerCycleMonths INTEGER NOT NULL DEFAULT 3")
+                // New ledger_entries table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS ledger_entries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        debtId INTEGER NOT NULL,
+                        year INTEGER NOT NULL,
+                        month INTEGER NOT NULL,
+                        openingBalance REAL NOT NULL,
+                        interestAdded REAL NOT NULL,
+                        carryOverAdded REAL NOT NULL,
+                        paymentAmount REAL NOT NULL,
+                        closingBalance REAL NOT NULL,
+                        isMissedPayment INTEGER NOT NULL DEFAULT 0,
+                        notes TEXT NOT NULL DEFAULT '',
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY(debtId) REFERENCES debts(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ledger_entries_debtId ON ledger_entries(debtId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_ledger_entries_debtId_year_month ON ledger_entries(debtId, year, month)")
+            }
+        }
+
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN paymentDate INTEGER")
+            }
+        }
+
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN ledgerInitialBalance REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN ledgerCurrentBalance REAL NOT NULL DEFAULT 0.0")
             }
         }
     }

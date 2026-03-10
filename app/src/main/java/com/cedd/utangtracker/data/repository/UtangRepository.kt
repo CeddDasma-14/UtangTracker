@@ -3,12 +3,14 @@ package com.cedd.utangtracker.data.repository
 import com.cedd.utangtracker.data.local.dao.ComakerDao
 import com.cedd.utangtracker.data.local.dao.ContractDao
 import com.cedd.utangtracker.data.local.dao.DebtDao
+import com.cedd.utangtracker.data.local.dao.LedgerDao
 import com.cedd.utangtracker.data.local.dao.PaymentDao
 import com.cedd.utangtracker.data.local.dao.PersonDao
 import com.cedd.utangtracker.data.local.dao.ReservationDao
 import com.cedd.utangtracker.data.local.entity.ComakerEntity
 import com.cedd.utangtracker.data.local.entity.ContractEntity
 import com.cedd.utangtracker.data.local.entity.DebtEntity
+import com.cedd.utangtracker.data.local.entity.LedgerEntryEntity
 import com.cedd.utangtracker.data.local.entity.PaymentEntity
 import com.cedd.utangtracker.data.local.entity.PersonEntity
 import com.cedd.utangtracker.data.local.entity.ReservationEntity
@@ -28,7 +30,8 @@ class UtangRepository @Inject constructor(
     private val contractDao: ContractDao,
     private val comakerDao: ComakerDao,
     private val reservationDao: ReservationDao,
-    private val linkRepo: ContractLinkRepository
+    private val linkRepo: ContractLinkRepository,
+    private val ledgerDao: LedgerDao
 ) {
     // Persons
     fun getAllPersons(): Flow<List<PersonEntity>> = personDao.getAllPersons()
@@ -151,4 +154,12 @@ class UtangRepository @Inject constructor(
 
     suspend fun saveBorrowerIdPhoto(contractNumber: String, base64DataUri: String): String =
         linkRepo.saveIdPhoto(base64DataUri, linkRepo.localIdPhotoFile(contractNumber))
+
+    // ── Loan Ledger ────────────────────────────────────────────────────────────
+    fun getLedgerEntries(debtId: Long) = ledgerDao.getEntriesForDebt(debtId)
+    suspend fun getLatestLedgerEntry(debtId: Long) = ledgerDao.getLatestEntry(debtId)
+    suspend fun insertLedgerEntry(entry: LedgerEntryEntity) = ledgerDao.insert(entry)
+    suspend fun updateLedgerEntry(entry: LedgerEntryEntity) = ledgerDao.update(entry)
+    suspend fun deleteLedgerEntry(entry: LedgerEntryEntity) = ledgerDao.delete(entry)
+    suspend fun clearLedger(debtId: Long) = ledgerDao.deleteAllForDebt(debtId)
 }
